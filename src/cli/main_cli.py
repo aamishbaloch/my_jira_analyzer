@@ -1,5 +1,5 @@
 """
-Main CLI entry point for all Jira tools.
+Main command-line interface for Jira Tools.
 """
 
 import argparse
@@ -7,6 +7,7 @@ import sys
 from typing import Optional
 
 from .sprint_cli import SprintCLI
+from .publish_cli import PublishCLI
 from ..core.config import Config
 
 
@@ -35,6 +36,11 @@ class MainCLI:
                 # Pass the remaining args to the sprint CLI
                 sprint_args = self._build_sprint_args(parsed_args)
                 return sprint_cli.run(sprint_args)
+            elif parsed_args.tool == 'publish':
+                publish_cli = PublishCLI()
+                # Pass the remaining args to the publish CLI
+                publish_args = self._build_publish_args(parsed_args)
+                return publish_cli.run(publish_args)
             elif parsed_args.tool == 'config':
                 return self._handle_config(parsed_args)
             elif parsed_args.tool == 'info':
@@ -55,6 +61,7 @@ class MainCLI:
             epilog="""
 Available Tools:
   sprint    Sprint completion analysis
+  publish   Publish results to Confluence, Slack, etc.
   config    Configuration management
   info      Project and connection information
 
@@ -62,7 +69,12 @@ Examples:
   # Sprint analysis
   %(prog)s sprint analyze --month 6
   %(prog)s sprint analyze --last-sprints 4 --details
+  %(prog)s sprint analyze --sprint-name "Sprint 42"
   %(prog)s sprint active
+  
+  # Publishing
+  %(prog)s publish confluence --month 6 --space TEAM
+  %(prog)s publish confluence --active --space DEV
   
   # Configuration
   %(prog)s config --create-sample
@@ -96,6 +108,7 @@ Examples:
         analyze_group = analyze_parser.add_mutually_exclusive_group(required=True)
         analyze_group.add_argument('--month', '-m', type=int, choices=range(1, 13))
         analyze_group.add_argument('--last-sprints', '-l', type=int)
+        analyze_group.add_argument('--sprint-name', '-n', type=str, help='Analyze specific sprint by name')
         analyze_parser.add_argument('--export', '-e', help='Export results to file')
         analyze_parser.add_argument('--details', '-d', action='store_true')
         
@@ -103,8 +116,25 @@ Examples:
         active_parser = sprint_subparsers.add_parser('active', help='Show active sprints')
         active_parser.add_argument('--export', '-e', help='Export results to file')
         
+        # Sprint average
+        sprint_subparsers.add_parser('average', help='Get average completion rate of last 4 sprints')
+        
         # Sprint test
         sprint_subparsers.add_parser('test', help='Test Jira connection')
+        
+        # Publish tool
+        publish_parser = subparsers.add_parser('publish', help='Publish analysis results')
+        publish_subparsers = publish_parser.add_subparsers(dest='publish_command')
+        
+        # Publish confluence
+        confluence_parser = publish_subparsers.add_parser('confluence', help='Publish to Confluence')
+        confluence_parser.add_argument('--sprint-name', '-n', type=str, required=True, help='Sprint name to analyze and publish')
+        confluence_parser.add_argument('--space', '-s', required=True, help='Confluence space key')
+        confluence_parser.add_argument('--title', '-t', help='Page title')
+        confluence_parser.add_argument('--parent', '-p', help='Parent page title')
+        
+        # Publish test
+        publish_subparsers.add_parser('test', help='Test publishing connections')
         
         # Config tool
         config_parser = subparsers.add_parser('config', help='Configuration management')
@@ -130,6 +160,8 @@ Examples:
                     args.extend(['--month', str(parsed_args.month)])
                 elif hasattr(parsed_args, 'last_sprints') and parsed_args.last_sprints:
                     args.extend(['--last-sprints', str(parsed_args.last_sprints)])
+                elif hasattr(parsed_args, 'sprint_name') and parsed_args.sprint_name:
+                    args.extend(['--sprint-name', parsed_args.sprint_name])
                 
                 if hasattr(parsed_args, 'export') and parsed_args.export:
                     args.extend(['--export', parsed_args.export])
@@ -140,6 +172,28 @@ Examples:
             elif parsed_args.sprint_command == 'active':
                 if hasattr(parsed_args, 'export') and parsed_args.export:
                     args.extend(['--export', parsed_args.export])
+        
+        return args
+    
+    def _build_publish_args(self, parsed_args) -> list:
+        """Build arguments for publish CLI."""
+        args = ['--config', parsed_args.config]
+        
+        if hasattr(parsed_args, 'publish_command') and parsed_args.publish_command:
+            args.append(parsed_args.publish_command)
+            
+            if parsed_args.publish_command == 'confluence':
+                if hasattr(parsed_args, 'sprint_name') and parsed_args.sprint_name:
+                    args.extend(['--sprint-name', parsed_args.sprint_name])
+                
+                if hasattr(parsed_args, 'space') and parsed_args.space:
+                    args.extend(['--space', parsed_args.space])
+                
+                if hasattr(parsed_args, 'title') and parsed_args.title:
+                    args.extend(['--title', parsed_args.title])
+                
+                if hasattr(parsed_args, 'parent') and parsed_args.parent:
+                    args.extend(['--parent', parsed_args.parent])
         
         return args
     

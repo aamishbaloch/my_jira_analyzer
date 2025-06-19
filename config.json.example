@@ -1,0 +1,28 @@
+{
+  "jira": {
+    "url": "https://your-company.atlassian.net",
+    "username": "your-email@company.com",
+    "api_token": "your-jira-api-token-here",
+    "project_key": "YOUR_PROJECT_KEY"
+  },
+  "confluence": {
+    "url": "https://your-company.atlassian.net/wiki",
+    "username": "your-email@company.com",
+    "api_token": "your-confluence-api-token-here",
+    "space": "YOUR_SPACE_KEY"
+  },
+  "ai": {
+    "gemini_api_key": "your-gemini-api-key-here"
+  },
+  "analyzers": {
+    "sprint": {
+      "analysis_mode": "month",
+      "target_month": 6,
+      "last_sprints_count": 4
+    }
+  },
+  "export": {
+    "default_format": "csv",
+    "output_directory": "reports"
+  }
+} 

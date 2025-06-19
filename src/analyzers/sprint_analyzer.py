@@ -1,5 +1,5 @@
 """
-Sprint completion analysis for Jira.
+Sprint completion rate analyzer for Jira projects.
 """
 
 from datetime import datetime
@@ -93,37 +93,120 @@ class SprintAnalyzer:
         Get summary of currently active sprints.
         
         Returns:
-            dict: Active sprints information
+            dict: Active sprint summary with current progress
         """
-        active_sprints = self.jira_client.get_active_sprints()
-        
-        summary = {
-            'active_sprint_count': len(active_sprints),
-            'sprints': []
-        }
-        
-        for sprint in active_sprints:
-            issues = self.jira_client.get_sprint_issues(sprint.id, expand_changelog=False)
+        try:
+            active_sprints = self.jira_client.get_active_sprints()
             
-            sprint_info = {
-                'name': sprint.name,
-                'start_date': sprint.startDate,
-                'end_date': sprint.endDate,
-                'total_issues': len(issues),
-                'done_issues': len([i for i in issues if i.fields.status.name in ['Done', 'Closed', 'Resolved']])
+            sprint_summaries = []
+            for sprint in active_sprints:
+                # Get issues in this sprint
+                jql = f'project = {self.config.get_jira_config()["project_key"]} AND sprint = {sprint.id}'
+                issues = self.jira_client.jira.search_issues(jql, maxResults=1000)
+                
+                total_issues = len(issues)
+                done_issues = len([issue for issue in issues if issue.fields.status.name.upper() == 'DONE'])
+                
+                current_completion_rate = (done_issues / total_issues * 100) if total_issues > 0 else 0
+                
+                sprint_summaries.append({
+                    'name': sprint.name,
+                    'id': sprint.id,
+                    'start_date': sprint.startDate,
+                    'end_date': sprint.endDate,
+                    'total_issues': total_issues,
+                    'done_issues': done_issues,
+                    'current_completion_rate': current_completion_rate
+                })
+            
+            return {
+                'active_sprint_count': len(active_sprints),
+                'sprints': sprint_summaries,
+                'analysis_timestamp': datetime.now().isoformat()
             }
             
-            if len(issues) > 0:
-                sprint_info['current_completion_rate'] = calculate_completion_percentage(
-                    sprint_info['done_issues'], 
-                    sprint_info['total_issues']
-                )
-            else:
-                sprint_info['current_completion_rate'] = 0.0
-            
-            summary['sprints'].append(sprint_info)
+        except Exception as e:
+            raise RuntimeError(f"Failed to get active sprints summary: {str(e)}")
+    
+    def analyze_sprint_by_name(self, sprint_name: str) -> Dict[str, Any]:
+        """
+        Analyze a specific sprint by name.
         
-        return summary
+        Args:
+            sprint_name (str): Name of the sprint to analyze
+            
+        Returns:
+            dict: Analysis results for the specified sprint
+        """
+        # Find the sprint by name
+        sprint = self.jira_client.find_sprint_by_name(sprint_name)
+        
+        if not sprint:
+            return {
+                'analysis_type': 'sprint_by_name',
+                'sprint_name': sprint_name,
+                'found': False,
+                'error': f'Sprint "{sprint_name}" not found'
+            }
+        
+        # Analyze the found sprint
+        result = self._analyze_single_sprint(sprint)
+        result['analysis_type'] = 'sprint_by_name'
+        result['found'] = True
+        result['sprint_id'] = sprint.id
+        result['sprint_state'] = getattr(sprint, 'state', 'unknown')
+        result['start_date'] = getattr(sprint, 'startDate', None)
+        
+        return result
+    
+    def get_average_completion_rate_last_4_sprints(self) -> Dict[str, Any]:
+        """
+        Get the average completion rate of the last 4 closed sprints.
+        This is a quick way to check recent sprint performance.
+        
+        Returns:
+            dict: Simple result with average completion rate and basic stats
+        """
+        try:
+            all_sprints = self.jira_client.get_all_closed_sprints()
+            last_4_sprints = all_sprints[:4]
+            
+            if not last_4_sprints:
+                return {
+                    'average_completion_rate': 0,
+                    'sprints_analyzed': 0,
+                    'sprint_rates': [],
+                    'message': 'No closed sprints found'
+                }
+            
+            sprint_rates = []
+            for sprint in last_4_sprints:
+                result = self._analyze_single_sprint(sprint)
+                sprint_rates.append({
+                    'name': result['sprint_name'],
+                    'completion_rate': result['completion_rate'],
+                    'total_tasks': result['total_tasks'],
+                    'completed_tasks': result['completed_within_sprint']
+                })
+            
+            # Calculate average completion rate
+            total_completion_rates = sum(sprint['completion_rate'] for sprint in sprint_rates)
+            average_rate = total_completion_rates / len(sprint_rates) if sprint_rates else 0
+            
+            return {
+                'average_completion_rate': round(average_rate, 1),
+                'sprints_analyzed': len(last_4_sprints),
+                'sprint_rates': sprint_rates,
+                'message': f'Average completion rate across last {len(last_4_sprints)} sprints: {round(average_rate, 1)}%'
+            }
+            
+        except Exception as e:
+            return {
+                'average_completion_rate': 0,
+                'sprints_analyzed': 0,
+                'sprint_rates': [],
+                'error': f'Failed to calculate average completion rate: {str(e)}'
+            }
     
     def _get_closed_sprints_by_month(self, target_month: int) -> List[Any]:
         """Get closed sprints filtered by target month."""
@@ -157,7 +240,7 @@ class SprintAnalyzer:
                 'total_tasks': 0,
                 'completed_within_sprint': 0,
                 'completion_rate': 0.0,
-                'tasks_details': []
+                'tasks': []
             }
         
         sprint_end = parse_jira_datetime(sprint.endDate)
@@ -176,8 +259,8 @@ class SprintAnalyzer:
             tasks_details.append({
                 'key': issue.key,
                 'summary': issue.fields.summary,
-                'status': issue.fields.status.name,
-                'done_date': done_date,
+                'current_status': issue.fields.status.name,
+                'completion_date': done_date.strftime('%Y-%m-%d') if done_date else None,
                 'completed_within_sprint': completed_within
             })
         
@@ -189,7 +272,7 @@ class SprintAnalyzer:
             'total_tasks': len(issues),
             'completed_within_sprint': completed_within_sprint,
             'completion_rate': completion_rate,
-            'tasks_details': tasks_details
+            'tasks': tasks_details
         }
     
     def _find_done_date(self, issue: Any) -> datetime:

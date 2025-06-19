@@ -47,7 +47,7 @@ class JiraClient:
                 sprints = self.jira.sprints(board.id, state='closed')
                 all_sprints.extend(sprints)
             except Exception as e:
-                print(f"Warning: Could not fetch sprints for board {board.name}: {e}")
+                print(f"Warning: Could not fetch sprints for board {board.name}")
                 continue
         
         if not all_sprints:
@@ -70,10 +70,51 @@ class JiraClient:
                 sprints = self.jira.sprints(board.id, state='active')
                 all_sprints.extend(sprints)
             except Exception as e:
-                print(f"Warning: Could not fetch active sprints for board {board.name}: {e}")
+                print(f"Warning: Could not fetch active sprints for board {board.name}")
                 continue
         
         return all_sprints
+    
+    def find_sprint_by_name(self, sprint_name: str) -> Optional[Any]:
+        """
+        Find a sprint by name (searches both active and closed sprints).
+        
+        Args:
+            sprint_name (str): Name of the sprint to find
+            
+        Returns:
+            Sprint object if found, None otherwise
+        """
+        boards = self.jira.boards(projectKeyOrID=self.config.project_key)
+        if not boards:
+            raise ValueError(f"No boards found for project {self.config.project_key}")
+        
+        # Search in all sprint states
+        for board in boards:
+            try:
+                # Check active sprints first
+                active_sprints = self.jira.sprints(board.id, state='active')
+                for sprint in active_sprints:
+                    if sprint.name.lower() == sprint_name.lower():
+                        return sprint
+                
+                # Then check closed sprints
+                closed_sprints = self.jira.sprints(board.id, state='closed')
+                for sprint in closed_sprints:
+                    if sprint.name.lower() == sprint_name.lower():
+                        return sprint
+                
+                # Finally check future sprints
+                future_sprints = self.jira.sprints(board.id, state='future')
+                for sprint in future_sprints:
+                    if sprint.name.lower() == sprint_name.lower():
+                        return sprint
+                        
+            except Exception as e:
+                print(f"Warning: Could not fetch sprints for board {board.name}")
+                continue
+        
+        return None
     
     def get_sprint_issues(self, sprint_id: int, expand_changelog: bool = True) -> List[Any]:
         """

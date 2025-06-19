@@ -49,6 +49,8 @@ class SprintCLI:
                 return self._handle_test(parsed_args)
             elif parsed_args.command == 'config':
                 return self._handle_config(parsed_args)
+            elif parsed_args.command == 'average':
+                return self._handle_average(parsed_args)
             else:
                 parser.print_help()
                 return 1
@@ -70,11 +72,17 @@ Examples:
   # Analyze sprints closed in June
   %(prog)s analyze --month 6
   
+  # Analyze a specific sprint by name
+  %(prog)s analyze --sprint-name "Sprint 42"
+  
   # Export results to CSV
   %(prog)s analyze --month 6 --export results.csv
   
   # View active sprints
   %(prog)s active
+  
+  # Get average completion rate of last 4 sprints  
+  %(prog)s average
   
   # Test connection
   %(prog)s test
@@ -106,6 +114,11 @@ Examples:
             type=int,
             help='Analyze last X closed sprints'
         )
+        analyze_group.add_argument(
+            '--sprint-name', '-n',
+            type=str,
+            help='Analyze a specific sprint by name'
+        )
         analyze_parser.add_argument(
             '--export', '-e',
             help='Export results to file (CSV or JSON based on extension)'
@@ -122,6 +135,9 @@ Examples:
             '--export', '-e',
             help='Export results to file'
         )
+        
+        # Average completion rate command
+        subparsers.add_parser('average', help='Get average completion rate of last 4 closed sprints')
         
         # Test command
         subparsers.add_parser('test', help='Test Jira connection')
@@ -145,6 +161,9 @@ Examples:
             if args.month:
                 print(f"📅 Analyzing sprints closed in {get_month_name(args.month)}")
                 results = self.analyzer.calculate_sprints_by_month(args.month)
+            elif args.sprint_name:
+                print(f"🎯 Analyzing sprint: {args.sprint_name}")
+                results = self.analyzer.analyze_sprint_by_name(args.sprint_name)
             else:
                 print(f"📈 Analyzing last {args.last_sprints} closed sprints")
                 results = self.analyzer.calculate_last_x_sprints(args.last_sprints)
@@ -220,13 +239,48 @@ Examples:
             print("Use --create-sample to create a sample configuration file")
             return 1
     
+    def _handle_average(self, args) -> int:
+        """Handle average command."""
+        print("📈 Getting average completion rate of last 4 sprints...")
+        
+        try:
+            results = self.analyzer.get_average_completion_rate_last_4_sprints()
+            self._display_average_completion_rate(results)
+            
+            return 0
+            
+        except Exception as e:
+            print(f"❌ Failed to get average completion rate: {e}")
+            return 1
+    
     def _display_analysis_results(self, results: dict, show_details: bool = False):
         """Display analysis results in a formatted way."""
         print("\n" + "="*60)
         print("📊 SPRINT COMPLETION ANALYSIS RESULTS")
         print("="*60)
         
-        # Summary statistics
+        # Handle sprint-by-name results (single sprint)
+        if results.get('analysis_type') == 'sprint_by_name':
+            if not results.get('found'):
+                print(f"\n❌ {results.get('error', 'Sprint not found')}")
+                return
+            
+            print(f"\n🎯 Sprint: {results['sprint_name']}")
+            print(f"   ID: {results.get('sprint_id', 'N/A')}")
+            print(f"   State: {results.get('sprint_state', 'unknown')}")
+            print(f"   Start Date: {results.get('start_date', 'N/A')}")
+            print(f"   End Date: {results.get('end_date', 'N/A')}")
+            print(f"   Total Tasks: {results['total_tasks']}")
+            print(f"   Completed Within Sprint: {results['completed_within_sprint']}")
+            print(f"   Completion Rate: {results['completion_rate']:.1f}%")
+            
+            # Show task details if requested
+            if show_details:
+                self._display_sprint_task_details(results)
+                
+            return
+        
+        # Summary statistics (for multiple sprints)
         print(f"\n📈 Overall Statistics:")
         print(f"   Total Tasks: {results['total_tasks']}")
         print(f"   Completed Within Sprint: {results['total_completed']}")
@@ -261,22 +315,37 @@ Examples:
         print(f"\n📋 Task Details for: {sprint_result['sprint_name']}")
         print("-" * 50)
         
-        if not sprint_result['tasks_details']:
+        # Handle both formats: tasks_details (multiple sprints) and tasks (single sprint)
+        task_list = sprint_result.get('tasks_details') or sprint_result.get('tasks', [])
+        
+        if not task_list:
             print("No tasks found in this sprint")
             return
         
-        headers = ['Task Key', 'Status', 'Completed in Sprint', 'Done Date']
+        headers = ['Task Key', 'Summary', 'Status', 'Completed in Sprint', 'Done Date']
         rows = []
         
-        for task in sprint_result['tasks_details']:
+        for task in task_list:
+            # Handle different field names between formats
+            task_key = task.get('key', 'N/A')
+            task_summary = task.get('summary', 'N/A')[:40] + ('...' if len(task.get('summary', '')) > 40 else '')
+            task_status = task.get('current_status') or task.get('status', 'N/A')
+            completed_within = task.get('completed_within_sprint', False)
+            
+            # Handle date field variations
             done_date_str = 'Not completed'
-            if task['done_date']:
-                done_date_str = task['done_date'].strftime('%Y-%m-%d %H:%M')
+            completion_date = task.get('completion_date') or task.get('done_date')
+            if completion_date:
+                if isinstance(completion_date, str):
+                    done_date_str = completion_date
+                else:
+                    done_date_str = completion_date.strftime('%Y-%m-%d')
             
             rows.append([
-                task['key'],
-                task['status'],
-                '✅' if task['completed_within_sprint'] else '❌',
+                task_key,
+                task_summary,
+                task_status,
+                '✅' if completed_within else '❌',
                 done_date_str
             ])
         
@@ -336,6 +405,47 @@ Examples:
                 
         except Exception as e:
             print(f"❌ Export failed: {e}")
+    
+    def _display_average_completion_rate(self, results: dict):
+        """Display average completion rate results."""
+        print("\n" + "="*50)
+        print("📈 AVERAGE COMPLETION RATE - LAST 4 SPRINTS")
+        print("="*50)
+        
+        if 'error' in results:
+            print(f"\n❌ {results['error']}")
+            return
+        
+        print(f"\n{results['message']}")
+        
+        if results['sprint_rates']:
+            print(f"\n📊 Individual Sprint Rates:")
+            
+            headers = ['Sprint Name', 'Total Tasks', 'Completed', 'Rate (%)']
+            rows = []
+            
+            for sprint in results['sprint_rates']:
+                rows.append([
+                    sprint['name'][:35] + ('...' if len(sprint['name']) > 35 else ''),
+                    str(sprint['total_tasks']),
+                    str(sprint['completed_tasks']),
+                    f"{sprint['completion_rate']:.1f}%"
+                ])
+            
+            print_table(headers, rows)
+            
+            print(f"\n🎯 Key Metrics:")
+            print(f"   • Sprints Analyzed: {results['sprints_analyzed']}")
+            print(f"   • Average Completion Rate: {results['average_completion_rate']}%")
+            
+            if results['sprint_rates']:
+                best_sprint = max(results['sprint_rates'], key=lambda x: x['completion_rate'])
+                worst_sprint = min(results['sprint_rates'], key=lambda x: x['completion_rate'])
+                
+                print(f"   • Best Sprint: {best_sprint['name']} ({best_sprint['completion_rate']:.1f}%)")
+                print(f"   • Worst Sprint: {worst_sprint['name']} ({worst_sprint['completion_rate']:.1f}%)")
+        else:
+            print(f"\nNo sprint data available for analysis.")
 
 
 def main():

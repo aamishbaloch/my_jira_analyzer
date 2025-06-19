@@ -14,7 +14,7 @@ import os
 # Add src directory to path for development
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.jira_tools.cli.main_cli import main
+from src.cli.main_cli import main
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 """
-Core functionality shared across all Jira tools.
+Core functionality for Jira Tools.
 """
 
 from .config import Config

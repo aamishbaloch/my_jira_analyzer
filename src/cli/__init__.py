@@ -1,5 +1,5 @@
 """
-Command-line interfaces for Jira tools.
+Command-line interfaces for Jira Tools.
 """
 
 from .sprint_cli import SprintCLI

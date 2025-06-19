@@ -1,5 +1,5 @@
 """
-Jira analyzers package.
+Analysis modules for Jira data.
 """
 
 from .sprint_analyzer import SprintAnalyzer
