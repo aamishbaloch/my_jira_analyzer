@@ -195,6 +195,7 @@ python publish.py spaces
 - Task categorization and theme extraction
 - Professional project management language
 - Fallback summaries when AI is unavailable
+- **📚 [Detailed AI Prompt Engineering Guide](AI_ACHIEVEMENT_SUMMARY.md)**
 
 ### 🔗 Rich Confluence Reports
 - Clickable Jira ticket links

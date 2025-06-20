@@ -131,6 +131,59 @@ class JiraClient:
         expand = "changelog" if expand_changelog else None
         return self.jira.search_issues(jql, maxResults=1000, expand=expand)
     
+    def get_epic_info(self, epic_key: str) -> dict:
+        """
+        Get epic information.
+        
+        Args:
+            epic_key (str): Epic key
+            
+        Returns:
+            Dict with epic information
+        """
+        try:
+            if not epic_key:
+                return {'key': None, 'summary': 'No Epic'}
+            
+            epic = self.jira.issue(epic_key)
+            return {
+                'key': epic.key,
+                'summary': epic.fields.summary
+            }
+        except Exception:
+            return {'key': epic_key, 'summary': 'Epic not found'}
+
+    def get_epic_for_issue(self, issue: Any) -> dict:
+        """
+        Get epic information for an issue.
+        
+        Args:
+            issue: Jira issue object
+            
+        Returns:
+            Dict with epic information
+        """
+        try:
+            # Try different epic field names (depends on Jira setup)
+            epic_key = None
+            
+            # Common epic field names
+            if hasattr(issue.fields, 'parent') and issue.fields.parent:
+                # Issue has a parent (could be epic)
+                if issue.fields.parent.fields.issuetype.name == 'Epic':
+                    epic_key = issue.fields.parent.key
+            elif hasattr(issue.fields, 'epic') and issue.fields.epic:
+                epic_key = issue.fields.epic.key
+            elif hasattr(issue.fields, 'customfield_10011'):  # Common epic link field
+                epic_key = getattr(issue.fields, 'customfield_10011', None)
+            elif hasattr(issue.fields, 'customfield_10014'):  # Another common epic link field
+                epic_key = getattr(issue.fields, 'customfield_10014', None)
+            
+            return self.get_epic_info(epic_key)
+            
+        except Exception:
+            return {'key': None, 'summary': 'No Epic'}
+    
     def get_issue_with_changelog(self, issue_key: str) -> Any:
         """
         Get a specific issue with changelog.

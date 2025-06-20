@@ -256,12 +256,18 @@ class SprintAnalyzer:
                 completed_within_sprint += 1
                 completed_within = True
             
+            # Get epic information for context
+            epic_info = self.jira_client.get_epic_for_issue(issue)
+            
             tasks_details.append({
                 'key': issue.key,
                 'summary': issue.fields.summary,
+                'description': getattr(issue.fields, 'description', '') or '',
                 'current_status': issue.fields.status.name,
                 'completion_date': done_date.strftime('%Y-%m-%d') if done_date else None,
-                'completed_within_sprint': completed_within
+                'completed_within_sprint': completed_within,
+                'epic_key': epic_info['key'],
+                'epic_summary': epic_info['summary']
             })
         
         completion_rate = calculate_completion_percentage(completed_within_sprint, len(issues))
