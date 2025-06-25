@@ -11,6 +11,7 @@ from ..core.config import Config
 from ..core.utils import get_month_name, format_duration
 from ..core.ai_summarizer import AISummarizer
 from ..analyzers.sprint_analyzer import SprintAnalyzer
+from ..analyzers.backlog_hygiene_analyzer import BacklogHygieneAnalyzer
 
 
 class ConfluencePublisher:
@@ -29,6 +30,7 @@ class ConfluencePublisher:
         self.confluence = self._connect()
         self.ai_summarizer = AISummarizer(config_path)
         self.sprint_analyzer = SprintAnalyzer(config_path)
+        self.backlog_analyzer = BacklogHygieneAnalyzer(config_path)
         
     def _connect(self) -> Confluence:
         """Connect to Confluence using configuration credentials."""
@@ -107,6 +109,67 @@ class ConfluencePublisher:
             
         except Exception as e:
             raise RuntimeError(f"Failed to publish to Confluence: {str(e)}")
+    
+    def publish_backlog_hygiene_analysis(self, space_key: str, page_title: str,
+                                       parent_page_title: Optional[str] = None) -> Dict[str, str]:
+        """
+        Publish backlog hygiene analysis results to a Confluence page.
+        
+        Args:
+            space_key (str): Confluence space key
+            page_title (str): Title for the page
+            parent_page_title (str, optional): Parent page title
+            
+        Returns:
+            dict: Information about the created/updated page
+        """
+        try:
+            # Get backlog hygiene analysis
+            analysis_results = self.backlog_analyzer.analyze_full_backlog_hygiene()
+            
+            # Generate HTML content
+            content = self._generate_backlog_hygiene_html(analysis_results)
+            
+            # Get parent page ID if specified
+            parent_id = None
+            if parent_page_title:
+                parent_id = self._get_page_id(space_key, parent_page_title)
+            
+            # Check if page already exists
+            existing_page = self._get_page_id(space_key, page_title)
+            
+            if existing_page:
+                # Update existing page
+                page = self.confluence.update_page(
+                    page_id=existing_page,
+                    title=page_title,
+                    body=content
+                )
+                action = "updated"
+            else:
+                # Create new page
+                page = self.confluence.create_page(
+                    space=space_key,
+                    title=page_title,
+                    body=content,
+                    parent_id=parent_id
+                )
+                action = "created"
+            
+            base_url = self.config.get_analyzer_config('confluence').get('url', '')
+            page_url = f"{base_url}/pages/viewpage.action?pageId={page['id']}"
+            
+            return {
+                'action': action,
+                'page_id': page['id'],
+                'page_url': page_url,
+                'title': page_title,
+                'space': space_key,
+                'analysis_results': analysis_results
+            }
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to publish backlog hygiene to Confluence: {str(e)}")
     
     def _get_page_id(self, space_key: str, page_title: str) -> Optional[str]:
         """Get page ID by space and title."""
@@ -384,6 +447,217 @@ class ConfluencePublisher:
                 ticket_link = self._get_jira_ticket_link(task_key)
                 html += f"<li>{ticket_link}: {task_title} <em>(status: {current_status})</em></li>"
             html += "</ul>"
+        
+        return html
+    
+    def _generate_backlog_hygiene_html(self, results: Dict[str, Any]) -> str:
+        """Generate HTML content for backlog hygiene analysis report."""
+        html = f"""
+        <h1>🧹 Backlog Hygiene Report</h1>
+        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        
+        {self._generate_hygiene_summary_section(results)}
+        {self._generate_hygiene_completeness_section(results)}
+        {self._generate_hygiene_age_section(results)}
+        {self._generate_hygiene_priority_epic_section(results)}
+        {self._generate_hygiene_recommendations_section(results)}
+        """
+        
+        return html
+    
+    def _generate_hygiene_summary_section(self, results: Dict[str, Any]) -> str:
+        """Generate hygiene summary section."""
+        total_issues = results.get('total_issues', 0)
+        hygiene_score = results.get('hygiene_score', 0)
+        
+        # Color coding for hygiene score
+        if hygiene_score >= 80:
+            score_emoji = "🟢"
+            status = "Excellent"
+            score_color = "#28a745"
+        elif hygiene_score >= 60:
+            score_emoji = "🟡"
+            status = "Good"
+            score_color = "#ffc107"
+        else:
+            score_emoji = "🔴"
+            status = "Needs Improvement"
+            score_color = "#dc3545"
+        
+        return f"""
+        <h2>📊 Overall Hygiene Summary</h2>
+        <table class="wrapped">
+            <tr>
+                <th>Metric</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td><strong>Total Backlog Issues</strong></td>
+                <td>{total_issues}</td>
+            </tr>
+            <tr>
+                <td><strong>Hygiene Score</strong></td>
+                <td><span style="color: {score_color}; font-weight: bold;">{hygiene_score}%</span></td>
+            </tr>
+            <tr>
+                <td><strong>Status</strong></td>
+                <td>{score_emoji} {status}</td>
+            </tr>
+        </table>
+        """
+    
+    def _generate_hygiene_completeness_section(self, results: Dict[str, Any]) -> str:
+        """Generate completeness analysis section."""
+        completeness = results.get('completeness', {})
+        counts = completeness.get('counts', {})
+        percentages = completeness.get('percentages', {})
+        
+        return f"""
+        <h2>📝 Completeness Analysis</h2>
+        <table class="wrapped">
+            <tr>
+                <th>Field</th>
+                <th>Issues with Field</th>
+                <th>Percentage</th>
+            </tr>
+            <tr>
+                <td><strong>Descriptions</strong></td>
+                <td>{counts.get('has_description', 0)}</td>
+                <td>{percentages.get('has_description_percentage', 0):.1f}%</td>
+            </tr>
+            <tr>
+                <td><strong>Epic Assignment</strong></td>
+                <td>{counts.get('has_epic', 0)}</td>
+                <td>{percentages.get('has_epic_percentage', 0):.1f}%</td>
+            </tr>
+            <tr>
+                <td><strong>Priority</strong></td>
+                <td>{counts.get('has_priority', 0)}</td>
+                <td>{percentages.get('has_priority_percentage', 0):.1f}%</td>
+            </tr>
+            <tr>
+                <td><strong>Story Points</strong></td>
+                <td>{counts.get('has_story_points', 0)}</td>
+                <td>{percentages.get('has_story_points_percentage', 0):.1f}%</td>
+            </tr>
+            <tr style="background-color: #f8f9fa;">
+                <td><strong>Fully Complete Issues</strong></td>
+                <td><strong>{counts.get('fully_complete', 0)}</strong></td>
+                <td><strong>{percentages.get('fully_complete_percentage', 0):.1f}%</strong></td>
+            </tr>
+        </table>
+        """
+    
+    def _generate_hygiene_age_section(self, results: Dict[str, Any]) -> str:
+        """Generate age distribution section."""
+        age = results.get('age_distribution', {})
+        distribution = age.get('distribution', {})
+        
+        return f"""
+        <h2>📅 Age Distribution</h2>
+        <table class="wrapped">
+            <tr>
+                <th>Age Range</th>
+                <th>Number of Issues</th>
+            </tr>
+            <tr>
+                <td>0-7 days</td>
+                <td>{distribution.get('0-7_days', 0)}</td>
+            </tr>
+            <tr>
+                <td>8-30 days</td>
+                <td>{distribution.get('8-30_days', 0)}</td>
+            </tr>
+            <tr>
+                <td>31-90 days</td>
+                <td>{distribution.get('31-90_days', 0)}</td>
+            </tr>
+            <tr style="background-color: #fff3cd;">
+                <td>91-180 days</td>
+                <td>{distribution.get('91-180_days', 0)}</td>
+            </tr>
+            <tr style="background-color: #f8d7da;">
+                <td>180+ days</td>
+                <td>{distribution.get('180+_days', 0)}</td>
+            </tr>
+        </table>
+        <p><strong>Average Age:</strong> {age.get('average_age_days', 0)} days</p>
+        <p><strong>Median Age:</strong> {age.get('median_age_days', 0)} days</p>
+        """
+    
+    def _generate_hygiene_priority_epic_section(self, results: Dict[str, Any]) -> str:
+        """Generate priority and epic analysis section."""
+        priority = results.get('priority_distribution', {})
+        epic = results.get('epic_assignment', {})
+        
+        # Priority distribution table
+        priority_html = """
+        <h2>🎯 Priority Distribution</h2>
+        <table class="wrapped">
+            <tr>
+                <th>Priority</th>
+                <th>Number of Issues</th>
+            </tr>
+        """
+        
+        for priority_name, count in priority.get('distribution', {}).items():
+            priority_html += f"""
+            <tr>
+                <td>{priority_name}</td>
+                <td>{count}</td>
+            </tr>
+            """
+        
+        priority_html += "</table>"
+        
+        # Epic assignment summary
+        epic_html = f"""
+        <h2>🎭 Epic Assignment</h2>
+        <table class="wrapped">
+            <tr>
+                <th>Metric</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td><strong>Issues with Epics</strong></td>
+                <td>{epic.get('issues_with_epics', 0)} ({epic.get('epic_assignment_percentage', 0):.1f}%)</td>
+            </tr>
+            <tr>
+                <td><strong>Orphaned Issues</strong></td>
+                <td>{epic.get('orphaned_issues', 0)}</td>
+            </tr>
+            <tr>
+                <td><strong>Unique Epics</strong></td>
+                <td>{epic.get('unique_epics', 0)}</td>
+            </tr>
+        </table>
+        """
+        
+        return priority_html + epic_html
+    
+    def _generate_hygiene_recommendations_section(self, results: Dict[str, Any]) -> str:
+        """Generate recommendations section."""
+        recommendations = results.get('recommendations', [])
+        
+        if not recommendations:
+            return """
+            <h2>💡 Recommendations</h2>
+            <p>🎉 Great job! Your backlog hygiene looks good with no specific recommendations at this time.</p>
+            """
+        
+        html = """
+        <h2>💡 Recommendations</h2>
+        <div style='background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;'>
+        <ol>
+        """
+        
+        for recommendation in recommendations:
+            html += f"<li>{recommendation}</li>"
+        
+        html += """
+        </ol>
+        </div>
+        """
         
         return html
     

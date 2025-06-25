@@ -6,6 +6,7 @@ A powerful Python toolkit for analyzing Jira sprint performance with AI-powered 
 
 - **🎯 Sprint-by-Name Analysis**: Analyze any sprint using its exact name with intelligent search
 - **📊 Team Performance Analytics**: Track completion rates and compare against team averages  
+- **🧹 Backlog Hygiene Analysis**: Assess backlog health with completeness, age, and quality metrics
 - **🤖 AI-Powered Insights**: Generate intelligent summaries using Google Gemini AI
 - **📝 Confluence Integration**: Publish rich HTML reports with clickable ticket links
 - **⚡ Multiple CLI Tools**: Choose from focused or comprehensive command interfaces
@@ -17,6 +18,7 @@ A powerful Python toolkit for analyzing Jira sprint performance with AI-powered 
 - **Sprint-by-Name Analysis**: Analyze any sprint by its exact name with case-insensitive matching
 - **Average Completion Rate**: Quick overview of team performance across last 4 sprints
 - **Active Sprint Monitoring**: Track current progress of active sprints
+- **Backlog Hygiene Analysis**: Comprehensive backlog health assessment with hygiene scoring
 - **AI-Powered Summaries**: Generate intelligent sprint achievement summaries using Google Gemini
 - **Confluence Publishing**: Automatically publish rich HTML reports with clickable ticket links
 - **Team Performance Context**: Compare individual sprint performance against team averages
@@ -51,6 +53,9 @@ python cli.py average
 # View active sprints
 python cli.py active
 
+# Analyze backlog hygiene
+python backlog_cli.py summary
+
 # Publish to Confluence with AI insights
 python publish.py confluence --sprint-name "Sprint 42" --space DEV
 ```
@@ -65,11 +70,13 @@ src/
 │   ├── ai_summarizer.py   # AI-powered summaries
 │   └── utils.py           # Utility functions
 ├── analyzers/             # Analysis modules
-│   └── sprint_analyzer.py # Sprint analysis logic
+│   ├── sprint_analyzer.py # Sprint analysis logic
+│   └── backlog_hygiene_analyzer.py # Backlog hygiene analysis
 ├── publishers/            # Publishing modules
 │   └── confluence_publisher.py # Confluence integration
 └── cli/                   # Command-line interfaces
     ├── sprint_cli.py      # Focused sprint CLI
+    ├── backlog_cli.py     # Backlog hygiene CLI
     ├── main_cli.py        # Comprehensive CLI
     └── publish_cli.py     # Publishing CLI
 ```
@@ -96,7 +103,9 @@ src/
        "url": "https://your-company.atlassian.net/wiki",
        "username": "your-email@company.com",
        "api_token": "your-actual-confluence-api-token",
-       "space": "YOUR_SPACE_KEY"
+       "default_space": "YOUR_SPACE_KEY",
+       "default_sprint_completion_parent_page": "Sprint Reviews",
+       "backlog_hygiene_parent_page": "Backlog Reports"
      },
      "ai": {
        "gemini_api_key": "your-actual-gemini-api-key"
@@ -105,6 +114,15 @@ src/
    ```
 
 3. **Your config.json is automatically ignored by git** - it won't be committed to the repository.
+
+#### Configuration Options
+
+**Confluence Publishing:**
+- `default_space`: Default Confluence space for all publishing
+- `default_sprint_completion_parent_page`: Parent page for sprint completion analysis reports
+- `backlog_hygiene_parent_page`: Parent page for backlog hygiene reports
+
+If parent pages are not specified, reports will be created at the root level of the space.
 
 ### Getting API Tokens
 
@@ -138,6 +156,28 @@ python cli.py analyze --month 6 --export results.json
 python cli.py test
 ```
 
+### Backlog Hygiene Analysis (`backlog_cli.py`)
+
+```bash
+# Comprehensive hygiene analysis
+python backlog_cli.py hygiene
+
+# Quick hygiene summary
+python backlog_cli.py summary
+
+# Find stale issues (default: 90+ days)
+python backlog_cli.py stale
+
+# Find stale issues with custom threshold
+python backlog_cli.py stale --days 60
+
+# Find incomplete issues
+python backlog_cli.py incomplete
+
+# Export results
+python backlog_cli.py hygiene --export hygiene_report.json
+```
+
 ### Comprehensive CLI (`main.py`)
 
 ```bash
@@ -146,8 +186,15 @@ python main.py sprint analyze --sprint-name "Sprint 42"
 python main.py sprint average
 python main.py sprint active
 
+# Backlog hygiene
+python main.py backlog hygiene
+python main.py backlog summary
+python main.py backlog stale --days 60
+python main.py backlog incomplete
+
 # Publishing
 python main.py publish confluence --sprint-name "Sprint 42" --space DEV
+python main.py publish backlog-hygiene --space DEV --parent "Backlog Reports"
 
 # Configuration
 python main.py config --create-sample
@@ -159,6 +206,7 @@ python main.py info
 
 ### Publishing (`publish.py`)
 
+#### Sprint Analysis Publishing
 ```bash
 # Publish sprint analysis
 python publish.py confluence --sprint-name "Sprint 42"
@@ -167,8 +215,24 @@ python publish.py confluence --sprint-name "Sprint 42"
 python publish.py confluence --sprint-name "Sprint 42" \
   --space DEV \
   --title "Custom Report Title" \
-  --parent "Sprint Reports"
+  --parent "Sprint Reviews"
+```
 
+#### Backlog Hygiene Publishing
+```bash
+# Publish backlog hygiene analysis (automatically includes current week)
+python publish.py backlog-hygiene --space DEV
+# Creates: "Analysis - W26 2024" (under "Backlog Hygiene" parent page)
+
+# With custom parent and title
+python publish.py backlog-hygiene \
+  --space DEV \
+  --parent "Backlog Reports" \
+  --title "Weekly Backlog Health Check - W26 2024"
+```
+
+#### Connection Testing
+```bash
 # Test connection
 python publish.py test
 
@@ -190,12 +254,23 @@ python publish.py spaces
 - Best and worst performing sprint identification
 - Trend analysis and insights
 
+### 🧹 Backlog Hygiene Analysis
+- **Hygiene Score (0-100%)**: Overall backlog health assessment
+- **Completeness Analysis**: Track issues with descriptions, epics, priorities, and story points
+- **Age Distribution**: Identify how long issues have been in backlog (0-7, 8-30, 31-90, 91-180, 180+ days)
+- **Stale Issue Detection**: Find issues older than configurable threshold (default: 90 days)
+- **Incomplete Issue Analysis**: Identify issues missing critical information
+- **Priority Distribution**: Analyze priority assignment across backlog
+- **Epic Assignment**: Track orphaned issues without epic assignments
+- **Actionable Recommendations**: Get specific suggestions for backlog improvement
+- **📚 [Detailed Hygiene Algorithm Guide](src/About%20the%20Algorithms/BACKLOG_HYGIENE_ALGORITHM.md)**
+
 ### 🤖 AI-Powered Insights
 - Intelligent sprint achievement summaries
 - Task categorization and theme extraction
 - Professional project management language
 - Fallback summaries when AI is unavailable
-- **📚 [Detailed AI Prompt Engineering Guide](AI_ACHIEVEMENT_SUMMARY.md)**
+- **📚 [Detailed AI Prompt Engineering Guide](src/About the Algorithms/AI_ACHIEVEMENT_SUMMARY.md)**
 
 ### 🔗 Rich Confluence Reports
 - Clickable Jira ticket links
@@ -223,6 +298,7 @@ The codebase follows a clean, modular architecture:
 ### Key Classes
 
 - **`SprintAnalyzer`**: Core analysis engine with sprint-by-name and average completion rate features
+- **`BacklogHygieneAnalyzer`**: Comprehensive backlog health assessment with hygiene scoring
 - **`JiraClient`**: Jira API wrapper with enhanced sprint search capabilities
 - **`ConfluencePublisher`**: Rich HTML report generation with AI integration
 - **`AISummarizer`**: Google Gemini integration for intelligent insights

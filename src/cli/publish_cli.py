@@ -43,6 +43,8 @@ class PublishCLI:
             # Handle different commands
             if parsed_args.command == 'confluence':
                 return self._handle_confluence(parsed_args)
+            elif parsed_args.command == 'backlog-hygiene':
+                return self._handle_backlog_hygiene(parsed_args)
             elif parsed_args.command == 'test':
                 return self._handle_test(parsed_args)
             elif parsed_args.command == 'spaces':
@@ -71,6 +73,12 @@ Examples:
   # Publish to specific space
   %(prog)s confluence --sprint-name "Sprint 42" --space DEV
   
+  # Publish backlog hygiene analysis
+  %(prog)s backlog-hygiene --space DEV
+  
+  # Publish backlog hygiene with custom parent
+  %(prog)s backlog-hygiene --space DEV --parent "Backlog Reports" --title "Weekly Backlog Health Check"
+  
   # Test Confluence connection
   %(prog)s test
   
@@ -87,8 +95,8 @@ Examples:
         
         subparsers = parser.add_subparsers(dest='command', help='Available commands')
         
-        # Confluence command
-        confluence_parser = subparsers.add_parser('confluence', help='Publish to Confluence')
+        # Confluence command for sprint analysis
+        confluence_parser = subparsers.add_parser('confluence', help='Publish sprint analysis to Confluence')
         
         # Sprint selection (required)
         confluence_parser.add_argument(
@@ -117,6 +125,24 @@ Examples:
             help='Update existing page if found (default: create new or update)'
         )
         
+        # Backlog hygiene command
+        backlog_parser = subparsers.add_parser('backlog-hygiene', help='Publish backlog hygiene analysis to Confluence')
+        
+        # Confluence-specific options for backlog
+        backlog_parser.add_argument(
+            '--space', '-s',
+            help='Confluence space key (uses default from config if not specified)'
+        )
+        backlog_parser.add_argument(
+            '--title', '-t',
+            default='Hygiene Analysis',
+            help='Page title (default: "Analysis - W{week} {year}")'
+        )
+        backlog_parser.add_argument(
+            '--parent', '-p',
+            help='Parent page title'
+        )
+        
         # Test command
         subparsers.add_parser('test', help='Test Confluence connection')
         
@@ -141,7 +167,7 @@ Examples:
         # Get space and parent from config if not provided
         confluence_config = self.confluence_publisher.config.get_analyzer_config('confluence')
         space_key = args.space or confluence_config.get('default_space')
-        parent_page = args.parent or confluence_config.get('default_parent_page')
+        parent_page = args.parent or confluence_config.get('default_sprint_completion_parent_page')
         
         if not space_key:
             print("❌ No space specified. Use --space parameter or set default_space in config.json")
@@ -180,7 +206,66 @@ Examples:
         
         return 0
     
-
+    def _handle_backlog_hygiene(self, args) -> int:
+        """Handle backlog hygiene publishing command."""
+        try:
+            return self._publish_backlog_hygiene_analysis(args)
+                
+        except Exception as e:
+            print(f"❌ Publishing failed: {e}")
+            return 1
+    
+    def _publish_backlog_hygiene_analysis(self, args) -> int:
+        """Publish backlog hygiene analysis to Confluence."""
+        print("🧹 Analyzing backlog hygiene...")
+        
+        # Get space and parent from config if not provided
+        confluence_config = self.confluence_publisher.config.get_analyzer_config('confluence')
+        space_key = args.space or confluence_config.get('default_space')
+        parent_page = args.parent or confluence_config.get('backlog_hygiene_parent_page')
+        
+        if not space_key:
+            print("❌ No space specified. Use --space parameter or set default_space in config.json")
+            return 1
+        
+        # Generate week-based title if using default
+        if args.title == 'Hygiene Analysis':
+            # Get current week number and year
+            now = datetime.now()
+            year = now.year
+            week_number = now.isocalendar()[1]  # ISO week number
+            page_title = f"Analysis - W{week_number:02d} {year}"
+        else:
+            page_title = args.title
+        
+        print(f"📊 Analysis in progress...")
+        print(f"📝 Publishing to Confluence space '{space_key}'...")
+        print(f"   📄 Page title: '{page_title}'")
+        if parent_page:
+            print(f"   📁 Under parent page: '{parent_page}'")
+        
+        # Publish to Confluence (analysis happens inside the publisher)
+        result = self.confluence_publisher.publish_backlog_hygiene_analysis(
+            space_key=space_key,
+            page_title=page_title,
+            parent_page_title=parent_page
+        )
+        
+        # Show some key metrics from the analysis
+        analysis_results = result.get('analysis_results', {})
+        total_issues = analysis_results.get('total_issues', 0)
+        hygiene_score = analysis_results.get('hygiene_score', 0)
+        
+        print(f"📊 Analysis complete:")
+        print(f"   Total backlog issues: {total_issues}")
+        print(f"   Hygiene score: {hygiene_score}%")
+        
+        print(f"✅ {result['action'].title()} Confluence page successfully!")
+        print(f"   📄 Page: {result['title']}")
+        print(f"   🔗 URL: {result['page_url']}")
+        print(f"   📁 Space: {result['space']}")
+        
+        return 0
     
     def _handle_test(self, args) -> int:
         """Handle test connection command."""

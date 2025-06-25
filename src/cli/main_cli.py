@@ -8,6 +8,7 @@ from typing import Optional
 
 from .sprint_cli import SprintCLI
 from .publish_cli import PublishCLI
+from .backlog_cli import BacklogCLI
 from ..core.config import Config
 
 
@@ -36,6 +37,11 @@ class MainCLI:
                 # Pass the remaining args to the sprint CLI
                 sprint_args = self._build_sprint_args(parsed_args)
                 return sprint_cli.run(sprint_args)
+            elif parsed_args.tool == 'backlog':
+                backlog_cli = BacklogCLI()
+                # Pass the remaining args to the backlog CLI
+                backlog_args = self._build_backlog_args(parsed_args)
+                return backlog_cli.run(backlog_args)
             elif parsed_args.tool == 'publish':
                 publish_cli = PublishCLI()
                 # Pass the remaining args to the publish CLI
@@ -61,6 +67,7 @@ class MainCLI:
             epilog="""
 Available Tools:
   sprint    Sprint completion analysis
+  backlog   Backlog hygiene analysis
   publish   Publish results to Confluence, Slack, etc.
   config    Configuration management
   info      Project and connection information
@@ -72,9 +79,15 @@ Examples:
   %(prog)s sprint analyze --sprint-name "Sprint 42"
   %(prog)s sprint active
   
+  # Backlog hygiene
+  %(prog)s backlog hygiene
+  %(prog)s backlog summary
+  %(prog)s backlog stale --days 60
+  %(prog)s backlog incomplete
+  
   # Publishing
-  %(prog)s publish confluence --month 6 --space TEAM
-  %(prog)s publish confluence --active --space DEV
+  %(prog)s publish confluence --sprint-name "Sprint 42" --space TEAM
+  %(prog)s publish backlog-hygiene --space DEV --parent "Backlog Reports"
   
   # Configuration
   %(prog)s config --create-sample
@@ -122,16 +135,43 @@ Examples:
         # Sprint test
         sprint_subparsers.add_parser('test', help='Test Jira connection')
         
+        # Backlog tool
+        backlog_parser = subparsers.add_parser('backlog', help='Backlog hygiene analysis')
+        backlog_subparsers = backlog_parser.add_subparsers(dest='backlog_command')
+        
+        # Backlog hygiene
+        hygiene_parser = backlog_subparsers.add_parser('hygiene', help='Comprehensive hygiene analysis')
+        hygiene_parser.add_argument('--export', '-e', help='Export results to file')
+        
+        # Backlog summary
+        summary_parser = backlog_subparsers.add_parser('summary', help='Quick hygiene summary')
+        summary_parser.add_argument('--export', '-e', help='Export results to file')
+        
+        # Backlog stale
+        stale_parser = backlog_subparsers.add_parser('stale', help='Find stale issues')
+        stale_parser.add_argument('--days', '-d', type=int, default=90, help='Days threshold')
+        stale_parser.add_argument('--export', '-e', help='Export results to file')
+        
+        # Backlog incomplete
+        incomplete_parser = backlog_subparsers.add_parser('incomplete', help='Find incomplete issues')
+        incomplete_parser.add_argument('--export', '-e', help='Export results to file')
+        
         # Publish tool
         publish_parser = subparsers.add_parser('publish', help='Publish analysis results')
         publish_subparsers = publish_parser.add_subparsers(dest='publish_command')
         
-        # Publish confluence
-        confluence_parser = publish_subparsers.add_parser('confluence', help='Publish to Confluence')
+        # Publish confluence (sprint analysis)
+        confluence_parser = publish_subparsers.add_parser('confluence', help='Publish sprint analysis to Confluence')
         confluence_parser.add_argument('--sprint-name', '-n', type=str, required=True, help='Sprint name to analyze and publish')
         confluence_parser.add_argument('--space', '-s', required=True, help='Confluence space key')
         confluence_parser.add_argument('--title', '-t', help='Page title')
         confluence_parser.add_argument('--parent', '-p', help='Parent page title')
+        
+        # Publish backlog hygiene
+        backlog_hygiene_parser = publish_subparsers.add_parser('backlog-hygiene', help='Publish backlog hygiene analysis to Confluence')
+        backlog_hygiene_parser.add_argument('--space', '-s', required=True, help='Confluence space key')
+        backlog_hygiene_parser.add_argument('--title', '-t', default='Hygiene Analysis', help='Page title (default includes current week)')
+        backlog_hygiene_parser.add_argument('--parent', '-p', help='Parent page title')
         
         # Publish test
         publish_subparsers.add_parser('test', help='Test publishing connections')
@@ -175,6 +215,23 @@ Examples:
         
         return args
     
+    def _build_backlog_args(self, parsed_args) -> list:
+        """Build arguments for backlog CLI."""
+        args = ['--config', parsed_args.config]
+        
+        if hasattr(parsed_args, 'backlog_command') and parsed_args.backlog_command:
+            args.append(parsed_args.backlog_command)
+            
+            # Add export option if present
+            if hasattr(parsed_args, 'export') and parsed_args.export:
+                args.extend(['--export', parsed_args.export])
+            
+            # Add days option for stale command
+            if parsed_args.backlog_command == 'stale' and hasattr(parsed_args, 'days'):
+                args.extend(['--days', str(parsed_args.days)])
+        
+        return args
+    
     def _build_publish_args(self, parsed_args) -> list:
         """Build arguments for publish CLI."""
         args = ['--config', parsed_args.config]
@@ -186,6 +243,16 @@ Examples:
                 if hasattr(parsed_args, 'sprint_name') and parsed_args.sprint_name:
                     args.extend(['--sprint-name', parsed_args.sprint_name])
                 
+                if hasattr(parsed_args, 'space') and parsed_args.space:
+                    args.extend(['--space', parsed_args.space])
+                
+                if hasattr(parsed_args, 'title') and parsed_args.title:
+                    args.extend(['--title', parsed_args.title])
+                
+                if hasattr(parsed_args, 'parent') and parsed_args.parent:
+                    args.extend(['--parent', parsed_args.parent])
+            
+            elif parsed_args.publish_command == 'backlog-hygiene':
                 if hasattr(parsed_args, 'space') and parsed_args.space:
                     args.extend(['--space', parsed_args.space])
                 
