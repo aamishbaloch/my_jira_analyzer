@@ -9,8 +9,8 @@
     "url": "https://your-company.atlassian.net/wiki",
     "username": "your-email@company.com",
     "api_token": "your-confluence-api-token-here",
-    "default_space": "YOUR_SPACE_KEY",
-    "default_sprint_completion_parent_page": "Sprint Reviews",
+    "space": "YOUR_SPACE_KEY",
+    "sprint_completion_parent_page": "Sprint Reviews",
     "backlog_hygiene_parent_page": "Backlog Reports"
   },
   "ai": {

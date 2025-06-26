@@ -12,23 +12,21 @@ with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name="jira-tools",
+    name="jira-publisher",
     version="1.0.0",
-    description="A comprehensive Python package for analyzing Jira sprint completion rates and publishing results",
+    description="A Python package for publishing Jira analysis results to Confluence and other platforms",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Your Name",
     author_email="your.email@example.com",
-    url="https://github.com/yourusername/jira-tools",
+    url="https://github.com/yourusername/jira-publisher",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=requirements,
     python_requires=">=3.7",
     entry_points={
         'console_scripts': [
-            'jira-tools=cli.main_cli:main',
-            'jira-sprint=cli.sprint_cli:main',
-            'jira-publish=cli.publish_cli:main',
+            'jira-publisher=main:main',
         ],
     },
     classifiers=[
@@ -45,7 +43,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Office/Business :: Groupware",
     ],
-    keywords="jira, sprint, analysis, confluence, reporting, agile",
+    keywords="jira, confluence, publishing, reporting, analysis",
     include_package_data=True,
     zip_safe=False,
 ) 

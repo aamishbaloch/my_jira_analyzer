@@ -1,8 +1,7 @@
 """
-Command-line interfaces for Jira Tools.
+Command-line interface for Jira Publisher.
 """
 
-from .sprint_cli import SprintCLI
-from .backlog_cli import BacklogCLI
+from .publish_cli import PublishCLI
 
-__all__ = ["SprintCLI", "BacklogCLI"] 
+__all__ = ["PublishCLI"] 

@@ -1,16 +1,15 @@
-# 🏃‍♂️ Jira Sprint Analyzer
+# 📝 Jira Publisher
 
-A powerful Python toolkit for analyzing Jira sprint performance with AI-powered insights and automated Confluence reporting.
+A focused Python tool for publishing Jira analysis results to Confluence with AI-powered insights.
 
 ## ✨ Key Features
 
-- **🎯 Sprint-by-Name Analysis**: Analyze any sprint using its exact name with intelligent search
-- **📊 Team Performance Analytics**: Track completion rates and compare against team averages  
-- **🧹 Backlog Hygiene Analysis**: Assess backlog health with completeness, age, and quality metrics
-- **🤖 AI-Powered Insights**: Generate intelligent summaries using Google Gemini AI
-- **📝 Confluence Integration**: Publish rich HTML reports with clickable ticket links
-- **⚡ Multiple CLI Tools**: Choose from focused or comprehensive command interfaces
-- **📈 Export & Integration**: Support for CSV, JSON, and programmatic usage
+- **📝 Confluence Publishing**: Publish sprint analysis and backlog hygiene reports to Confluence
+- **🤖 AI-Powered Insights**: Generate intelligent summaries and recommendations using Google Gemini AI
+- **🎯 Sprint Analysis Publishing**: Create rich HTML reports for sprint completion analysis
+- **🧹 Backlog Hygiene Publishing**: Publish comprehensive backlog health assessments
+- **🔗 Rich HTML Reports**: Generate reports with clickable Jira ticket links
+- **⚙️ Flexible Configuration**: Support for multiple projects and spaces
 
 ## Features
 
@@ -44,20 +43,23 @@ python cli.py config --create-sample
 ### Basic Usage
 
 ```bash
-# Analyze a specific sprint by name
-python cli.py analyze --sprint-name "Sprint 42"
+# Publish sprint analysis to Confluence
+python main.py confluence --sprint-name "Sprint 42"
 
-# Get team performance overview
-python cli.py average
+# Publish backlog hygiene analysis
+python main.py backlog-hygiene
 
-# View active sprints
-python cli.py active
+# Publish backlog hygiene with AI insights
+python main.py backlog-hygiene --ai-enhanced
 
-# Analyze backlog hygiene
-python backlog_cli.py summary
+# Publish dedicated AI insights report  
+python main.py ai-insights
 
-# Publish to Confluence with AI insights
-python publish.py confluence --sprint-name "Sprint 42" --space DEV
+# Test Confluence connection
+python main.py test
+
+# List available Confluence spaces (for reference)
+python main.py spaces
 ```
 
 ## Package Structure
@@ -74,10 +76,7 @@ src/
 │   └── backlog_hygiene_analyzer.py # Backlog hygiene analysis
 ├── publishers/            # Publishing modules
 │   └── confluence_publisher.py # Confluence integration
-└── cli/                   # Command-line interfaces
-    ├── sprint_cli.py      # Focused sprint CLI
-    ├── backlog_cli.py     # Backlog hygiene CLI
-    ├── main_cli.py        # Comprehensive CLI
+└── cli/                   # Command-line interface
     └── publish_cli.py     # Publishing CLI
 ```
 
@@ -103,8 +102,8 @@ src/
        "url": "https://your-company.atlassian.net/wiki",
        "username": "your-email@company.com",
        "api_token": "your-actual-confluence-api-token",
-       "default_space": "YOUR_SPACE_KEY",
-       "default_sprint_completion_parent_page": "Sprint Reviews",
+       "space": "YOUR_SPACE_KEY",
+               "sprint_completion_parent_page": "Sprint Reviews",
        "backlog_hygiene_parent_page": "Backlog Reports"
      },
      "ai": {
@@ -118,8 +117,8 @@ src/
 #### Configuration Options
 
 **Confluence Publishing:**
-- `default_space`: Default Confluence space for all publishing
-- `default_sprint_completion_parent_page`: Parent page for sprint completion analysis reports
+- `space`: Confluence space for all publishing
+- `sprint_completion_parent_page`: Parent page for sprint completion analysis reports
 - `backlog_hygiene_parent_page`: Parent page for backlog hygiene reports
 
 If parent pages are not specified, reports will be created at the root level of the space.
@@ -131,122 +130,61 @@ If parent pages are not specified, reports will be created at the root level of 
 
 ## Available Commands
 
-### Sprint Analysis (`cli.py`)
+All commands are publishing-focused and generate Confluence reports with rich HTML formatting and AI insights:
 
+### Sprint Analysis Publishing
 ```bash
-# Analyze specific sprint
-python cli.py analyze --sprint-name "Sprint 42"
-python cli.py analyze --sprint-name "Sprint 42" --details
-
-# Analyze by time period
-python cli.py analyze --month 6
-python cli.py analyze --last-sprints 4
-
-# Team performance overview
-python cli.py average
-
-# Active sprints
-python cli.py active
-
-# Export results
-python cli.py analyze --sprint-name "Sprint 42" --export results.csv
-python cli.py analyze --month 6 --export results.json
-
-# Test connection
-python cli.py test
-```
-
-### Backlog Hygiene Analysis (`backlog_cli.py`)
-
-```bash
-# Comprehensive hygiene analysis
-python backlog_cli.py hygiene
-
-# Quick hygiene summary
-python backlog_cli.py summary
-
-# Find stale issues (default: 90+ days)
-python backlog_cli.py stale
-
-# Find stale issues with custom threshold
-python backlog_cli.py stale --days 60
-
-# Find incomplete issues
-python backlog_cli.py incomplete
-
-# Find incomplete issues with AI improvement suggestions
-python backlog_cli.py incomplete --ai-enhanced
-
-# Get AI-powered backlog insights and recommendations
-python backlog_cli.py ai-insights
-
-# Export results
-python backlog_cli.py hygiene --export hygiene_report.json
-```
-
-### Comprehensive CLI (`main.py`)
-
-```bash
-# Sprint analysis
-python main.py sprint analyze --sprint-name "Sprint 42"
-python main.py sprint average
-python main.py sprint active
-
-# Backlog hygiene
-python main.py backlog hygiene
-python main.py backlog summary
-python main.py backlog stale --days 60
-python main.py backlog incomplete
-python main.py backlog incomplete --ai-enhanced
-python main.py backlog ai-insights
-
-# Publishing
-python main.py publish confluence --sprint-name "Sprint 42" --space DEV
-python main.py publish backlog-hygiene --space DEV --parent "Backlog Reports"
-
-# Configuration
-python main.py config --create-sample
-python main.py config --test
-
-# Project information
-python main.py info
-```
-
-### Publishing (`publish.py`)
-
-#### Sprint Analysis Publishing
-```bash
-# Publish sprint analysis
-python publish.py confluence --sprint-name "Sprint 42"
+# Publish sprint analysis to Confluence
+python main.py confluence --sprint-name "Sprint 42"
 
 # Custom configuration
-python publish.py confluence --sprint-name "Sprint 42" \
-  --space DEV \
+python main.py confluence --sprint-name "Sprint 42" \
   --title "Custom Report Title" \
   --parent "Sprint Reviews"
 ```
 
-#### Backlog Hygiene Publishing
+### Backlog Hygiene Publishing
 ```bash
 # Publish backlog hygiene analysis (automatically includes current week)
-python publish.py backlog-hygiene --space DEV
-# Creates: "Analysis - W26 2024" (under "Backlog Hygiene" parent page)
+python main.py backlog-hygiene
+# Creates: "Analysis - W26 2024" (under default parent page)
+
+# With AI-enhanced insights
+python main.py backlog-hygiene --ai-enhanced
 
 # With custom parent and title
-python publish.py backlog-hygiene \
-  --space DEV \
+python main.py backlog-hygiene \
   --parent "Backlog Reports" \
-  --title "Weekly Backlog Health Check - W26 2024"
+  --title "Weekly Backlog Health Check"
 ```
 
-#### Connection Testing
+### AI Insights Publishing
 ```bash
-# Test connection
-python publish.py test
+# Publish dedicated AI insights report
+python main.py ai-insights
 
-# List available spaces
-python publish.py spaces
+# With custom configuration
+python main.py ai-insights \
+  --title "AI Backlog Insights" \
+  --parent "AI Reports"
 ```
+
+### Utility Commands
+```bash
+# Test Confluence connection
+python main.py test
+
+# List available Confluence spaces (for reference)
+python main.py spaces
+```
+
+### Command Options
+- `--title, -t`: Custom page title (auto-generated if not provided)  
+- `--parent, -p`: Parent page title for organizing reports
+- `--ai-enhanced`: Include enhanced AI insights in backlog hygiene reports
+- `--config, -c`: Path to configuration file (default: config.json)
+
+**Note**: The Confluence space is automatically read from `space` in your config.json file.
 
 ## Features in Detail
 
@@ -271,14 +209,14 @@ python publish.py spaces
 - **Priority Distribution**: Analyze priority assignment across backlog
 - **Epic Assignment**: Track orphaned issues without epic assignments
 - **Actionable Recommendations**: Get specific suggestions for backlog improvement
-- **📚 [Detailed Hygiene Algorithm Guide](src/About%20the%20Algorithms/BACKLOG_HYGIENE_ALGORITHM.md)**
+- **📚 [Detailed Hygiene Algorithm Guide](documentation/BACKLOG_HYGIENE_ALGORITHM.md)**
 
 ### 🤖 AI-Powered Insights
 - Intelligent sprint achievement summaries
 - Task categorization and theme extraction
 - Professional project management language
 - Fallback summaries when AI is unavailable
-- **📚 [Detailed AI Prompt Engineering Guide](src/About the Algorithms/AI_ACHIEVEMENT_SUMMARY.md)**
+- **📚 [Detailed AI Prompt Engineering Guide](documentation/AI_ACHIEVEMENT_SUMMARY.md)**
 
 ### 🔗 Rich Confluence Reports
 - Clickable Jira ticket links

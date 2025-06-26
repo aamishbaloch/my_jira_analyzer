@@ -4,10 +4,10 @@ AI-powered sprint summary generator using Google Gemini REST API.
 
 import os
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 import requests
 
-from .config import Config
+from ..configs.config import Config
 
 
 class AISummarizer:
@@ -15,14 +15,17 @@ class AISummarizer:
     AI-powered summarizer for generating sprint achievement summaries using Google Gemini REST API.
     """
     
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config: Union[Config, str] = 'src/configs/config.json'):
         """
         Initialize the AI summarizer.
         
         Args:
-            config_path (str): Path to the configuration file
+            config (Union[Config, str]): Config instance or path to configuration file
         """
-        self.config = Config(config_path)
+        if isinstance(config, Config):
+            self.config = config
+        else:
+            self.config = Config(config)
         self.api_key = self._initialize_gemini()
         self.base_url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
     

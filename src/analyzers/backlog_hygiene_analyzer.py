@@ -3,13 +3,13 @@ Backlog hygiene analyzer for Jira projects.
 """
 
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from collections import Counter
 
-from ..core.config import Config
-from ..core.jira_client import JiraClient
-from ..core.utils import parse_jira_datetime
-from ..core.ai_summarizer import AISummarizer
+from ..configs.config import Config
+from ..clients.jira_client import JiraClient
+from ..utils.utils import parse_jira_datetime
+from ..gen_ai.ai_summarizer import AISummarizer
 
 
 class BacklogHygieneAnalyzer:
@@ -18,16 +18,26 @@ class BacklogHygieneAnalyzer:
     and epic assignment quality.
     """
     
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config: Union[Config, str] = 'src/configs/config.json', ai_summarizer: Optional[AISummarizer] = None):
         """
         Initialize the BacklogHygieneAnalyzer with configuration.
         
         Args:
-            config_path (str): Path to the configuration file
+            config (Union[Config, str]): Config instance or path to configuration file
+            ai_summarizer (Optional[AISummarizer]): Existing AISummarizer instance to reuse
         """
-        self.config = Config(config_path)
+        if isinstance(config, Config):
+            self.config = config
+        else:
+            self.config = Config(config)
+        
+        # Use provided AISummarizer or create a new one
+        if ai_summarizer:
+            self.ai_summarizer = ai_summarizer
+        else:
+            self.ai_summarizer = AISummarizer(self.config)
+            
         self.jira_client = JiraClient(self.config)
-        self.ai_summarizer = AISummarizer(config_path)
         
     def analyze_full_backlog_hygiene(self) -> Dict[str, Any]:
         """

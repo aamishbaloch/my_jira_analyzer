@@ -22,7 +22,7 @@ class Config:
     2. config.json file (fallback)
     """
     
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config_path: str = 'src/configs/config.json'):
         """
         Initialize configuration.
         
@@ -80,7 +80,7 @@ class Config:
                 "url": os.getenv('CONFLUENCE_URL', ''),
                 "username": os.getenv('CONFLUENCE_USERNAME', ''),
                 "api_token": os.getenv('CONFLUENCE_API_TOKEN', ''),
-                "space": os.getenv('CONFLUENCE_DEFAULT_SPACE', '')
+                "space": os.getenv('CONFLUENCE_SPACE', '')
             },
             "ai": {
                 "gemini_api_key": os.getenv('GEMINI_API_KEY', '')
@@ -176,7 +176,7 @@ class Config:
         return self.config.get('analyzers', {}).get(analyzer_name, {})
     
     @classmethod
-    def create_sample_config(cls, output_path: str = 'config.json.example') -> None:
+    def create_sample_config(cls, output_path: str = 'src/configs/config.json.example') -> None:
         """
         Create a sample configuration file.
         
@@ -225,5 +225,5 @@ class Config:
         print("CONFLUENCE_URL=https://your-domain.atlassian.net/wiki")
         print("CONFLUENCE_USERNAME=your-email@company.com")
         print("CONFLUENCE_API_TOKEN=your-confluence-token")
-        print("CONFLUENCE_DEFAULT_SPACE=YOUR_SPACE")
+        print("CONFLUENCE_SPACE=YOUR_SPACE")
         print("GEMINI_API_KEY=your-gemini-key") 

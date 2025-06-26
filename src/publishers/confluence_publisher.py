@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from atlassian import Confluence
 
-from ..core.config import Config
-from ..core.utils import get_month_name, format_duration
-from ..core.ai_summarizer import AISummarizer
+from ..configs.config import Config
+from ..utils.utils import get_month_name, format_duration
+from ..gen_ai.ai_summarizer import AISummarizer
 from ..analyzers.sprint_analyzer import SprintAnalyzer
 from ..analyzers.backlog_hygiene_analyzer import BacklogHygieneAnalyzer
 
@@ -19,7 +19,7 @@ class ConfluencePublisher:
     Publisher for creating and updating Confluence pages with Jira analysis data.
     """
     
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config_path: str = 'src/configs/config.json'):
         """
         Initialize the Confluence publisher.
         
@@ -28,9 +28,9 @@ class ConfluencePublisher:
         """
         self.config = Config(config_path)
         self.confluence = self._connect()
-        self.ai_summarizer = AISummarizer(config_path)
-        self.sprint_analyzer = SprintAnalyzer(config_path)
-        self.backlog_analyzer = BacklogHygieneAnalyzer(config_path)
+        self.ai_summarizer = AISummarizer(self.config)
+        self.sprint_analyzer = SprintAnalyzer(self.config)
+        self.backlog_analyzer = BacklogHygieneAnalyzer(self.config, self.ai_summarizer)
         
     def _connect(self) -> Confluence:
         """Connect to Confluence using configuration credentials."""
@@ -244,7 +244,6 @@ class ConfluencePublisher:
         # Header with summary
         html = f"""
         <h1>🏃 Sprint Analysis Report</h1>
-        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         
         {self._generate_summary_section(results)}
         {self._generate_ai_achievements_section(results)}
@@ -514,7 +513,6 @@ class ConfluencePublisher:
         """Generate HTML content for backlog hygiene analysis report."""
         html = f"""
         <h1>🧹 Backlog Hygiene Report</h1>
-        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         
         {self._generate_hygiene_summary_section(results)}
         {self._generate_hygiene_completeness_section(results)}
@@ -749,7 +747,6 @@ class ConfluencePublisher:
         # Header with current timestamp
         html = f"""
         <h1>🤖 AI-Powered Backlog Insights</h1>
-        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         
         {self._generate_ai_insights_overview_section(results)}
         {self._generate_ai_key_findings_section(results)}

@@ -6,7 +6,7 @@ from jira import JIRA
 from typing import List, Any, Optional
 from datetime import datetime
 
-from .config import Config
+from ..configs.config import Config
 
 
 class JiraClient:

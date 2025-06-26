@@ -3,11 +3,11 @@ Sprint completion rate analyzer for Jira projects.
 """
 
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Union
 
-from ..core.config import Config
-from ..core.jira_client import JiraClient
-from ..core.utils import parse_jira_datetime, calculate_completion_percentage
+from ..configs.config import Config
+from ..clients.jira_client import JiraClient
+from ..utils.utils import parse_jira_datetime, calculate_completion_percentage
 
 
 class SprintAnalyzer:
@@ -15,14 +15,17 @@ class SprintAnalyzer:
     Analyzer for Jira sprint completion rates based on actual task completion dates.
     """
     
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config: Union[Config, str] = 'src/configs/config.json'):
         """
         Initialize the SprintAnalyzer with configuration.
         
         Args:
-            config_path (str): Path to the configuration file
+            config (Union[Config, str]): Config instance or path to configuration file
         """
-        self.config = Config(config_path)
+        if isinstance(config, Config):
+            self.config = config
+        else:
+            self.config = Config(config)
         self.jira_client = JiraClient(self.config)
         
     def calculate_sprints_by_month(self, target_month: int) -> Dict[str, Any]:
