@@ -66,18 +66,25 @@ python main.py spaces
 
 ```
 src/
-├── core/                   # Core functionality
-│   ├── config.py          # Configuration management
-│   ├── jira_client.py     # Jira API client
-│   ├── ai_summarizer.py   # AI-powered summaries
-│   └── utils.py           # Utility functions
+├── gen_ai/                # AI-powered analysis modules
+│   ├── sprint_summarizer.py          # Sprint achievement summaries
+│   ├── hygiene_analyzer.py           # Backlog hygiene recommendations
+│   └── prompts/                      # AI prompt templates
+│       ├── sprint_summarizer_prompts.py
+│       └── backlog_hygiene_prompts.py
 ├── analyzers/             # Analysis modules
 │   ├── sprint_analyzer.py # Sprint analysis logic
 │   └── backlog_hygiene_analyzer.py # Backlog hygiene analysis
 ├── publishers/            # Publishing modules
 │   └── confluence_publisher.py # Confluence integration
-└── cli/                   # Command-line interface
-    └── publish_cli.py     # Publishing CLI
+├── clients/               # External service clients
+│   └── jira_client.py     # Jira API client
+├── configs/               # Configuration management
+│   └── config.py          # Configuration handling
+├── cli/                   # Command-line interface
+│   └── publish_cli.py     # Publishing CLI
+└── utils/                 # Utility functions
+    └── utils.py           # Shared utilities
 ```
 
 ## Configuration
@@ -86,7 +93,7 @@ src/
 
 1. **Copy the example configuration:**
    ```bash
-   cp config.json.example config.json
+   cp src/configs/config.json.example config.json
    ```
 
 2. **Edit config.json with your actual credentials:**
@@ -208,15 +215,16 @@ python main.py spaces
 - **Incomplete Issue Analysis**: Identify issues missing critical information
 - **Priority Distribution**: Analyze priority assignment across backlog
 - **Epic Assignment**: Track orphaned issues without epic assignments
-- **Actionable Recommendations**: Get specific suggestions for backlog improvement
-- **📚 [Detailed Hygiene Algorithm Guide](documentation/BACKLOG_HYGIENE_ALGORITHM.md)**
+- **AI-Powered Recommendations**: Get Scrum expert insights and actionable suggestions
+- **📚 [Detailed Hygiene Algorithm Guide](documentation/HYGIENE_ANALYZER_GUIDE.md)**
 
 ### 🤖 AI-Powered Insights
-- Intelligent sprint achievement summaries
-- Task categorization and theme extraction
-- Professional project management language
-- Fallback summaries when AI is unavailable
-- **📚 [Detailed AI Prompt Engineering Guide](documentation/AI_ACHIEVEMENT_SUMMARY.md)**
+- **Sprint Summarizer**: Intelligent sprint achievement summaries with epic context
+- **Hygiene Analyzer**: Scrum expert recommendations for backlog improvement
+- **Strategic Context**: Epic descriptions and business value focus
+- **Plain Text Output**: Confluence-ready formatting without markdown
+- **Fallback Summaries**: Structured recommendations when AI unavailable
+- **📚 [Detailed AI Prompt Engineering Guide](documentation/SPRINT_SUMMARIZER_GUIDE.md)**
 
 ### 🔗 Rich Confluence Reports
 - Clickable Jira ticket links
@@ -236,18 +244,21 @@ python main.py spaces
 ### Package Structure
 The codebase follows a clean, modular architecture:
 
-- **`src/core/`**: Shared functionality (config, Jira client, utilities)
-- **`src/analyzers/`**: Analysis logic and algorithms  
+- **`src/gen_ai/`**: AI-powered analysis with dedicated summarizers and prompt templates
+- **`src/analyzers/`**: Core analysis logic and algorithms  
 - **`src/publishers/`**: Output and publishing modules
 - **`src/cli/`**: Command-line interfaces and user interaction
+- **`src/clients/`**: External service integrations
+- **`src/configs/`**: Configuration management
 
 ### Key Classes
 
 - **`SprintAnalyzer`**: Core analysis engine with sprint-by-name and average completion rate features
 - **`BacklogHygieneAnalyzer`**: Comprehensive backlog health assessment with hygiene scoring
-- **`JiraClient`**: Jira API wrapper with enhanced sprint search capabilities
+- **`SprintSummarizer`**: AI-powered sprint achievement summaries with epic context
+- **`HygieneAnalyzer`**: AI-powered backlog recommendations and Scrum expert insights
+- **`JiraClient`**: Jira API wrapper with enhanced sprint search and epic detection capabilities
 - **`ConfluencePublisher`**: Rich HTML report generation with AI integration
-- **`AISummarizer`**: Google Gemini integration for intelligent insights
 
 ### Installation for Development
 
@@ -282,6 +293,6 @@ MIT License - see LICENSE file for details.
 
 For issues and questions:
 1. Check the configuration setup
-2. Test API connections using `python cli.py test`
+2. Test API connections using `python main.py test`
 3. Review error messages for specific guidance
 4. Open an issue with detailed information 
