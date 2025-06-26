@@ -9,7 +9,8 @@ from atlassian import Confluence
 
 from ..configs.config import Config
 from ..utils.utils import get_month_name, format_duration
-from ..gen_ai.ai_summarizer import AISummarizer
+from ..gen_ai.sprint_summarizer import SprintSummarizer
+from ..gen_ai.hygiene_analyzer import HygieneAnalyzer
 from ..analyzers.sprint_analyzer import SprintAnalyzer
 from ..analyzers.backlog_hygiene_analyzer import BacklogHygieneAnalyzer
 
@@ -28,9 +29,11 @@ class ConfluencePublisher:
         """
         self.config = Config(config_path)
         self.confluence = self._connect()
-        self.ai_summarizer = AISummarizer(self.config)
+        # Lazy load AI modules to avoid double initialization
+        self._sprint_summarizer = None
+        self._hygiene_analyzer = None
         self.sprint_analyzer = SprintAnalyzer(self.config)
-        self.backlog_analyzer = BacklogHygieneAnalyzer(self.config, self.ai_summarizer)
+        # Don't initialize backlog_analyzer here - will do it lazily when needed
         
     def _connect(self) -> Confluence:
         """Connect to Confluence using configuration credentials."""
@@ -50,6 +53,27 @@ class ConfluencePublisher:
             )
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Confluence: {str(e)}")
+    
+    @property
+    def sprint_summarizer(self):
+        """Lazy load sprint summarizer."""
+        if self._sprint_summarizer is None:
+            self._sprint_summarizer = SprintSummarizer(self.config)
+        return self._sprint_summarizer
+    
+    @property
+    def hygiene_analyzer(self):
+        """Lazy load hygiene analyzer."""
+        if self._hygiene_analyzer is None:
+            self._hygiene_analyzer = HygieneAnalyzer(self.config)
+        return self._hygiene_analyzer
+    
+    @property
+    def backlog_analyzer(self):
+        """Lazy load backlog analyzer."""
+        if not hasattr(self, '_backlog_analyzer') or self._backlog_analyzer is None:
+            self._backlog_analyzer = BacklogHygieneAnalyzer(self.config, self.hygiene_analyzer)
+        return self._backlog_analyzer
     
     def publish_sprint_analysis(self, analysis_results: Dict[str, Any], 
                               space_key: str, page_title: str,
@@ -243,8 +267,6 @@ class ConfluencePublisher:
         """Generate HTML content for single sprint analysis report."""
         # Header with summary
         html = f"""
-        <h1>🏃 Sprint Analysis Report</h1>
-        
         {self._generate_summary_section(results)}
         {self._generate_ai_achievements_section(results)}
         {self._generate_average_completion_context(results)}
@@ -440,7 +462,7 @@ class ConfluencePublisher:
         
         try:
             # Generate AI summary for single sprint
-            ai_summary = self.ai_summarizer.generate_sprint_achievement_summary(results)
+            ai_summary = self.sprint_summarizer.generate_sprint_achievement_summary(results)
             html += f"<div style='background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 10px 0;'>"
             html += f"<p>{ai_summary.replace(chr(10), '</p><p>')}</p>"
             html += "</div>"
@@ -512,8 +534,6 @@ class ConfluencePublisher:
     def _generate_backlog_hygiene_html(self, results: Dict[str, Any]) -> str:
         """Generate HTML content for backlog hygiene analysis report."""
         html = f"""
-        <h1>🧹 Backlog Hygiene Report</h1>
-        
         {self._generate_hygiene_summary_section(results)}
         {self._generate_hygiene_completeness_section(results)}
         {self._generate_hygiene_age_section(results)}

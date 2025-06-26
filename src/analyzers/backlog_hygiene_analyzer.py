@@ -9,7 +9,7 @@ from collections import Counter
 from ..configs.config import Config
 from ..clients.jira_client import JiraClient
 from ..utils.utils import parse_jira_datetime
-from ..gen_ai.ai_summarizer import AISummarizer
+from ..gen_ai.hygiene_analyzer import HygieneAnalyzer
 
 
 class BacklogHygieneAnalyzer:
@@ -18,24 +18,24 @@ class BacklogHygieneAnalyzer:
     and epic assignment quality.
     """
     
-    def __init__(self, config: Union[Config, str] = 'src/configs/config.json', ai_summarizer: Optional[AISummarizer] = None):
+    def __init__(self, config: Union[Config, str] = 'src/configs/config.json', ai_summarizer: Optional[HygieneAnalyzer] = None):
         """
         Initialize the BacklogHygieneAnalyzer with configuration.
         
         Args:
             config (Union[Config, str]): Config instance or path to configuration file
-            ai_summarizer (Optional[AISummarizer]): Existing AISummarizer instance to reuse
+            ai_summarizer (Optional[HygieneAnalyzer]): Existing HygieneAnalyzer instance to reuse
         """
         if isinstance(config, Config):
             self.config = config
         else:
             self.config = Config(config)
         
-        # Use provided AISummarizer or create a new one
+        # Use provided HygieneAnalyzer or create a new one
         if ai_summarizer:
             self.ai_summarizer = ai_summarizer
         else:
-            self.ai_summarizer = AISummarizer(self.config)
+            self.ai_summarizer = HygieneAnalyzer(self.config)
             
         self.jira_client = JiraClient(self.config)
         

@@ -1,7 +1,11 @@
 """
-Generative AI modules for content generation and summarization.
+AI-powered analysis and summarization modules.
 """
 
-from .ai_summarizer import AISummarizer
+from .sprint_summarizer import SprintSummarizer
+from .hygiene_analyzer import HygieneAnalyzer
 
-__all__ = ["AISummarizer"] 
+__all__ = [
+    'SprintSummarizer', 
+    'HygieneAnalyzer'
+] 

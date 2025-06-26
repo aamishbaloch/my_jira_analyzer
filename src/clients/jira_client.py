@@ -143,15 +143,16 @@ class JiraClient:
         """
         try:
             if not epic_key:
-                return {'key': None, 'summary': 'No Epic'}
+                return {'key': None, 'summary': 'No Epic', 'description': 'No Epic'}
             
             epic = self.jira.issue(epic_key)
             return {
                 'key': epic.key,
-                'summary': epic.fields.summary
+                'summary': epic.fields.summary,
+                'description': getattr(epic.fields, 'description', '') or 'No description'
             }
         except Exception:
-            return {'key': epic_key, 'summary': 'Epic not found'}
+            return {'key': epic_key, 'summary': 'Epic not found', 'description': 'Epic not found'}
 
     def get_epic_for_issue(self, issue: Any) -> dict:
         """

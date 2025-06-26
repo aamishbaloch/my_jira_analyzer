@@ -270,7 +270,8 @@ class SprintAnalyzer:
                 'completion_date': done_date.strftime('%Y-%m-%d') if done_date else None,
                 'completed_within_sprint': completed_within,
                 'epic_key': epic_info['key'],
-                'epic_summary': epic_info['summary']
+                'epic_summary': epic_info['summary'],
+                'epic_description': epic_info['description']
             })
         
         completion_rate = calculate_completion_percentage(completed_within_sprint, len(issues))
