@@ -171,6 +171,66 @@ class ConfluencePublisher:
         except Exception as e:
             raise RuntimeError(f"Failed to publish backlog hygiene to Confluence: {str(e)}")
     
+    def publish_ai_insights_analysis(self, space_key: str, page_title: str,
+                                   parent_page_title: Optional[str] = None) -> Dict[str, str]:
+        """
+        Publish AI-powered insights analysis to a Confluence page.
+        
+        Args:
+            space_key (str): Confluence space key
+            page_title (str): Title for the page
+            parent_page_title (str, optional): Parent page title
+            
+        Returns:
+            dict: Information about the created/updated page
+        """
+        try:
+            # Get AI insights from backlog analyzer
+            ai_insights_results = self.backlog_analyzer.get_ai_insights()
+            
+            # Generate HTML content focused on AI insights
+            content = self._generate_ai_insights_html(ai_insights_results)
+            
+            # Get parent page ID if specified
+            parent_id = None
+            if parent_page_title:
+                parent_id = self._get_page_id(space_key, parent_page_title)
+            
+            # Check if page already exists
+            existing_page = self._get_page_id(space_key, page_title)
+            
+            if existing_page:
+                # Update existing page
+                page = self.confluence.update_page(
+                    page_id=existing_page,
+                    title=page_title,
+                    body=content
+                )
+                action = "updated"
+            else:
+                # Create new page
+                page = self.confluence.create_page(
+                    space=space_key,
+                    title=page_title,
+                    body=content,
+                    parent_id=parent_id
+                )
+                action = "created"
+            
+            base_url = self.config.get_analyzer_config('confluence').get('url', '')
+            page_url = f"{base_url}/pages/viewpage.action?pageId={page['id']}"
+            
+            return {
+                'action': action,
+                'page_id': page['id'],
+                'page_url': page_url,
+                'title': page_title,
+                'space': space_key
+            }
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to publish AI insights to Confluence: {str(e)}")
+    
     def _get_page_id(self, space_key: str, page_title: str) -> Optional[str]:
         """Get page ID by space and title."""
         try:
@@ -460,6 +520,7 @@ class ConfluencePublisher:
         {self._generate_hygiene_completeness_section(results)}
         {self._generate_hygiene_age_section(results)}
         {self._generate_hygiene_priority_epic_section(results)}
+        {self._generate_hygiene_ai_recommendations_section(results)}
         {self._generate_hygiene_recommendations_section(results)}
         """
         
@@ -641,12 +702,12 @@ class ConfluencePublisher:
         
         if not recommendations:
             return """
-            <h2>💡 Recommendations</h2>
-            <p>🎉 Great job! Your backlog hygiene looks good with no specific recommendations at this time.</p>
+            <h2>⚡ Quick Action Items</h2>
+            <p>🎉 Great job! Your backlog hygiene looks good with no specific action items at this time.</p>
             """
         
         html = """
-        <h2>💡 Recommendations</h2>
+        <h2>⚡ Quick Action Items</h2>
         <div style='background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;'>
         <ol>
         """
@@ -656,6 +717,158 @@ class ConfluencePublisher:
         
         html += """
         </ol>
+        </div>
+        """
+        
+        return html
+    
+    def _generate_hygiene_ai_insights_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI insights section for backlog hygiene."""
+        ai_insights = results.get('ai_insights', '')
+        
+        if not ai_insights:
+            return ""
+        
+        html = """
+        <h2>🤖 AI-Powered Insights</h2>
+        <div style='background-color: #e8f4fd; padding: 15px; border-left: 4px solid #0066cc; margin: 10px 0;'>
+        """
+        
+        # Format AI insights with proper line breaks
+        formatted_insights = ai_insights.replace('\n', '</p><p>')
+        html += f"<p>{formatted_insights}</p>"
+        
+        html += """
+        </div>
+        """
+        
+        return html
+    
+    def _generate_ai_insights_html(self, results: Dict[str, Any]) -> str:
+        """Generate HTML content specifically for AI insights analysis."""
+        # Header with current timestamp
+        html = f"""
+        <h1>🤖 AI-Powered Backlog Insights</h1>
+        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        
+        {self._generate_ai_insights_overview_section(results)}
+        {self._generate_ai_key_findings_section(results)}
+        {self._generate_ai_recommendations_section(results)}
+        {self._generate_ai_action_items_section(results)}
+        """
+        
+        return html
+    
+    def _generate_ai_insights_overview_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI insights overview section."""
+        total_issues = results.get('total_issues', 0)
+        hygiene_score = results.get('hygiene_score', 0)
+        ai_insights = results.get('ai_insights', '')
+        
+        return f"""
+        <h2>📊 Overview</h2>
+        <div style='background-color: #f8f9fa; padding: 15px; border-left: 4px solid #6c757d; margin: 10px 0;'>
+            <p><strong>Total Backlog Issues:</strong> {total_issues}</p>
+            <p><strong>Overall Hygiene Score:</strong> {hygiene_score}%</p>
+        </div>
+        
+        <h3>🎯 AI Analysis Summary</h3>
+        <div style='background-color: #e8f4fd; padding: 15px; border-left: 4px solid #0066cc; margin: 10px 0;'>
+            <p>{ai_insights.replace(chr(10), '</p><p>') if ai_insights else 'AI insights not available'}</p>
+        </div>
+        """
+    
+    def _generate_ai_key_findings_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI key findings section."""
+        key_findings = results.get('key_findings', [])
+        
+        if not key_findings:
+            return """
+            <h2>🔍 Key Findings</h2>
+            <p>No specific key findings identified at this time.</p>
+            """
+        
+        html = """
+        <h2>🔍 Key Findings</h2>
+        <div style='background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 10px 0;'>
+        <ul>
+        """
+        
+        for finding in key_findings:
+            html += f"<li>{finding}</li>"
+        
+        html += """
+        </ul>
+        </div>
+        """
+        
+        return html
+    
+    def _generate_ai_recommendations_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI recommendations section."""
+        recommendations = results.get('recommendations', [])
+        
+        if not recommendations:
+            return """
+            <h2>💡 AI Recommendations</h2>
+            <p>🎉 No specific recommendations at this time - your backlog looks healthy!</p>
+            """
+        
+        html = """
+        <h2>💡 AI Recommendations</h2>
+        <div style='background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 10px 0;'>
+        <ol>
+        """
+        
+        for recommendation in recommendations:
+            html += f"<li>{recommendation}</li>"
+        
+        html += """
+        </ol>
+        </div>
+        """
+        
+        return html
+    
+    def _generate_ai_action_items_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI action items section."""
+        action_items = results.get('action_items', [])
+        
+        if not action_items:
+            return """
+            <h2>✅ Suggested Action Items</h2>
+            <p>No specific action items suggested at this time.</p>
+            """
+        
+        html = """
+        <h2>✅ Suggested Action Items</h2>
+        <div style='background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 10px 0;'>
+        <table class="wrapped">
+            <tr>
+                <th>Priority</th>
+                <th>Action Item</th>
+                <th>Expected Impact</th>
+            </tr>
+        """
+        
+        for item in action_items:
+            priority = item.get('priority', 'Medium')
+            action = item.get('action', '')
+            impact = item.get('impact', 'Unknown')
+            
+            # Color code priority
+            priority_color = '#dc3545' if priority == 'High' else ('#ffc107' if priority == 'Medium' else '#28a745')
+            
+            html += f"""
+            <tr>
+                <td style="background-color: {priority_color}; color: white; font-weight: bold;">{priority}</td>
+                <td>{action}</td>
+                <td>{impact}</td>
+            </tr>
+            """
+        
+        html += """
+        </table>
         </div>
         """
         
@@ -717,4 +930,48 @@ class ConfluencePublisher:
             return {
                 'status': 'failed',
                 'error': str(e)
-            } 
+            }
+    
+    def _generate_hygiene_ai_recommendations_section(self, results: Dict[str, Any]) -> str:
+        """Generate AI recommendations section with summary and action items."""
+        ai_recommendations = results.get('ai_recommendations', '')
+        
+        if not ai_recommendations:
+            return ""
+        
+        # Split the AI recommendations into summary and action items
+        if "Action items:" in ai_recommendations:
+            parts = ai_recommendations.split("Action items:")
+            summary = parts[0].strip()
+            action_items = parts[1].strip()
+        else:
+            summary = ai_recommendations
+            action_items = ""
+        
+        html = """
+        <h2>🤖 AI Backlog Assessment</h2>
+        <div style='background-color: #e3f2fd; padding: 20px; border-left: 5px solid #2196F3; margin: 15px 0; border-radius: 5px;'>
+        """
+        
+        # Add summary section
+        if summary:
+            html += f"""
+            <h4 style='margin-top: 0; color: #1565C0;'>📊 Backlog Health Summary</h4>
+            <p style='line-height: 1.6; margin-bottom: 15px;'>{summary}</p>
+            """
+        
+        # Add action items section
+        if action_items:
+            html += f"""
+            <h4 style='color: #1565C0; margin-bottom: 10px;'>⚡ Short-term Action Items</h4>
+            <div style='background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #2196F3;'>
+                <p style='line-height: 1.6; margin: 0; font-weight: 500;'>{action_items}</p>
+            </div>
+            """
+        
+        html += """
+        </div>
+        <p><em>💡 AI analysis based on current backlog patterns and team workflow optimization.</em></p>
+        """
+        
+        return html 

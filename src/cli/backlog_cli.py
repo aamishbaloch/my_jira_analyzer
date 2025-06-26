@@ -46,6 +46,8 @@ class BacklogCLI:
                 return self._handle_stale(parsed_args)
             elif parsed_args.command == 'incomplete':
                 return self._handle_incomplete(parsed_args)
+            elif parsed_args.command == 'ai-insights':
+                return self._handle_ai_insights(parsed_args)
             else:
                 parser.print_help()
                 return 1
@@ -122,6 +124,17 @@ Examples:
             '--export', '-e',
             help='Export results to file (JSON format)'
         )
+        incomplete_parser.add_argument(
+            '--ai-enhanced', action='store_true',
+            help='Include AI suggestions for improving incomplete issues'
+        )
+        
+        # AI insights command
+        ai_parser = subparsers.add_parser('ai-insights', help='Get AI-powered backlog insights and recommendations')
+        ai_parser.add_argument(
+            '--export', '-e',
+            help='Export results to file (JSON format)'
+        )
         
         return parser
     
@@ -178,11 +191,43 @@ Examples:
     
     def _handle_incomplete(self, args) -> int:
         """Handle incomplete issues command."""
-        print("📝 Finding incomplete issues...")
+        if hasattr(args, 'ai_enhanced') and args.ai_enhanced:
+            print("📝 Finding incomplete issues with AI enhancement...")
+            try:
+                results = self.analyzer.get_ai_enhanced_incomplete_analysis()
+                self._display_ai_enhanced_incomplete_issues(results)
+                
+                if args.export:
+                    self._export_results(results, args.export)
+                
+                return 0
+                
+            except Exception as e:
+                print(f"❌ Failed to analyze incomplete issues with AI: {e}")
+                return 1
+        else:
+            print("📝 Finding incomplete issues...")
+            
+            try:
+                results = self.analyzer.get_incomplete_issues()
+                self._display_incomplete_issues(results)
+                
+                if args.export:
+                    self._export_results(results, args.export)
+                
+                return 0
+                
+            except Exception as e:
+                print(f"❌ Failed to analyze incomplete issues: {e}")
+                return 1
+    
+    def _handle_ai_insights(self, args) -> int:
+        """Handle AI insights command."""
+        print("🤖 Generating AI-powered backlog insights...")
         
         try:
-            results = self.analyzer.get_incomplete_issues()
-            self._display_incomplete_issues(results)
+            results = self.analyzer.get_ai_backlog_insights()
+            self._display_ai_insights(results)
             
             if args.export:
                 self._export_results(results, args.export)
@@ -190,7 +235,7 @@ Examples:
             return 0
             
         except Exception as e:
-            print(f"❌ Failed to analyze incomplete issues: {e}")
+            print(f"❌ Failed to generate AI insights: {e}")
             return 1
     
     def _export_results(self, results: dict, filename: str):
@@ -260,6 +305,11 @@ Examples:
             print(f"\n💡 RECOMMENDATIONS")
             for i, rec in enumerate(result['recommendations'], 1):
                 print(f"   {i}. {rec}")
+        
+        # AI Recommendations
+        if result.get('ai_recommendations'):
+            print(f"\n🤖 AI RECOMMENDATIONS")
+            print(f"   {result['ai_recommendations']}")
         
         print(f"\nAnalysis completed at: {result['analysis_timestamp']}")
 
@@ -349,6 +399,57 @@ Examples:
         else:
             print("\n🎉 All issues are complete!")
 
+
+    def _display_ai_enhanced_incomplete_issues(self, result: Dict[str, Any]):
+        """Display AI-enhanced incomplete issues analysis."""
+        self._display_incomplete_issues(result)  # Show regular incomplete issues first
+        
+        enhanced_issues = result.get('enhanced_issues', [])
+        if enhanced_issues:
+            print(f"\n🤖 AI IMPROVEMENT SUGGESTIONS (Top {len(enhanced_issues)}):")
+            print("-" * 80)
+            
+            for i, issue in enumerate(enhanced_issues[:5], 1):  # Show top 5 with suggestions
+                print(f"\n{i}. {issue['key']}: {issue['summary']}")
+                print(f"   Missing: {', '.join(issue['missing_fields'])}")
+                print(f"   🤖 AI Suggestion: {issue['ai_improvement_suggestion']}")
+        
+        # Show AI quality analysis if available
+        ai_analysis = result.get('ai_quality_analysis', {})
+        if ai_analysis.get('ai_analysis'):
+            print(f"\n🔍 AI QUALITY ANALYSIS:")
+            print("-" * 80)
+            print(ai_analysis['ai_analysis'])
+    
+    def _display_ai_insights(self, result: Dict[str, Any]):
+        """Display AI-powered backlog insights."""
+        hygiene_analysis = result.get('hygiene_analysis', {})
+        ai_insights = result.get('ai_insights', '')
+        
+        print("\n" + "="*80)
+        print("AI-POWERED BACKLOG INSIGHTS")
+        print("="*80)
+        
+        # Show basic metrics first
+        print(f"\n📊 QUICK METRICS")
+        print(f"   Total Issues: {hygiene_analysis.get('total_issues', 0)}")
+        print(f"   Hygiene Score: {hygiene_analysis.get('hygiene_score', 0)}%")
+        
+        # Show AI insights
+        if ai_insights:
+            print(f"\n🤖 AI INSIGHTS & RECOMMENDATIONS:")
+            print("-" * 80)
+            print(ai_insights)
+        else:
+            print(f"\n⚠️  AI insights unavailable")
+        
+        # Show traditional recommendations as backup
+        recommendations = hygiene_analysis.get('recommendations', [])
+        if recommendations:
+            print(f"\n💡 TRADITIONAL RECOMMENDATIONS:")
+            print("-" * 80)
+            for i, rec in enumerate(recommendations, 1):
+                print(f"{i}. {rec}")
 
 def main():
     """Main entry point for backlog CLI."""

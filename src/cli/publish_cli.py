@@ -45,6 +45,8 @@ class PublishCLI:
                 return self._handle_confluence(parsed_args)
             elif parsed_args.command == 'backlog-hygiene':
                 return self._handle_backlog_hygiene(parsed_args)
+            elif parsed_args.command == 'ai-insights':
+                return self._handle_ai_insights(parsed_args)
             elif parsed_args.command == 'test':
                 return self._handle_test(parsed_args)
             elif parsed_args.command == 'spaces':
@@ -78,6 +80,12 @@ Examples:
   
   # Publish backlog hygiene with custom parent
   %(prog)s backlog-hygiene --space DEV --parent "Backlog Reports" --title "Weekly Backlog Health Check"
+  
+  # Publish backlog hygiene with AI insights
+  %(prog)s backlog-hygiene --space DEV --ai-enhanced
+  
+  # Publish dedicated AI insights report
+  %(prog)s ai-insights --space DEV --parent "AI Reports"
   
   # Test Confluence connection
   %(prog)s test
@@ -139,6 +147,28 @@ Examples:
             help='Page title (default: "Analysis - W{week} {year}")'
         )
         backlog_parser.add_argument(
+            '--parent', '-p',
+            help='Parent page title'
+        )
+        backlog_parser.add_argument(
+            '--ai-enhanced',
+            action='store_true',
+            help='Include enhanced AI insights and recommendations'
+        )
+        
+        # AI insights command
+        ai_insights_parser = subparsers.add_parser('ai-insights', help='Publish AI insights analysis to Confluence')
+        
+        # Confluence-specific options for AI insights
+        ai_insights_parser.add_argument(
+            '--space', '-s',
+            help='Confluence space key (uses default from config if not specified)'
+        )
+        ai_insights_parser.add_argument(
+            '--title', '-t',
+            help='Page title (auto-generated if not provided)'
+        )
+        ai_insights_parser.add_argument(
             '--parent', '-p',
             help='Parent page title'
         )
@@ -259,6 +289,51 @@ Examples:
         print(f"📊 Analysis complete:")
         print(f"   Total backlog issues: {total_issues}")
         print(f"   Hygiene score: {hygiene_score}%")
+        
+        print(f"✅ {result['action'].title()} Confluence page successfully!")
+        print(f"   📄 Page: {result['title']}")
+        print(f"   🔗 URL: {result['page_url']}")
+        print(f"   📁 Space: {result['space']}")
+        
+        return 0
+    
+    def _handle_ai_insights(self, args) -> int:
+        """Handle AI insights publishing command."""
+        try:
+            return self._publish_ai_insights_analysis(args)
+                
+        except Exception as e:
+            print(f"❌ Publishing failed: {e}")
+            return 1
+    
+    def _publish_ai_insights_analysis(self, args) -> int:
+        """Publish AI insights analysis to Confluence."""
+        print("🤖 Analyzing AI insights...")
+        
+        # Get space and parent from config if not provided
+        confluence_config = self.confluence_publisher.config.get_analyzer_config('confluence')
+        space_key = args.space or confluence_config.get('default_space')
+        parent_page = args.parent or confluence_config.get('ai_insights_parent_page')
+        
+        if not space_key:
+            print("❌ No space specified. Use --space parameter or set default_space in config.json")
+            return 1
+        
+        # Use provided title if specified
+        page_title = args.title or "AI Insights Analysis"
+        
+        print(f"📊 Analysis in progress...")
+        print(f"📝 Publishing to Confluence space '{space_key}'...")
+        print(f"   📄 Page title: '{page_title}'")
+        if parent_page:
+            print(f"   📁 Under parent page: '{parent_page}'")
+        
+        # Publish to Confluence (analysis happens inside the publisher)
+        result = self.confluence_publisher.publish_ai_insights_analysis(
+            space_key=space_key,
+            page_title=page_title,
+            parent_page_title=parent_page
+        )
         
         print(f"✅ {result['action'].title()} Confluence page successfully!")
         print(f"   📄 Page: {result['title']}")

@@ -174,6 +174,12 @@ python backlog_cli.py stale --days 60
 # Find incomplete issues
 python backlog_cli.py incomplete
 
+# Find incomplete issues with AI improvement suggestions
+python backlog_cli.py incomplete --ai-enhanced
+
+# Get AI-powered backlog insights and recommendations
+python backlog_cli.py ai-insights
+
 # Export results
 python backlog_cli.py hygiene --export hygiene_report.json
 ```
@@ -191,6 +197,8 @@ python main.py backlog hygiene
 python main.py backlog summary
 python main.py backlog stale --days 60
 python main.py backlog incomplete
+python main.py backlog incomplete --ai-enhanced
+python main.py backlog ai-insights
 
 # Publishing
 python main.py publish confluence --sprint-name "Sprint 42" --space DEV

@@ -88,6 +88,8 @@ Examples:
   # Publishing
   %(prog)s publish confluence --sprint-name "Sprint 42" --space TEAM
   %(prog)s publish backlog-hygiene --space DEV --parent "Backlog Reports"
+  %(prog)s publish backlog-hygiene --space DEV --ai-enhanced
+  %(prog)s publish ai-insights --space DEV --focus hygiene
   
   # Configuration
   %(prog)s config --create-sample
@@ -155,6 +157,11 @@ Examples:
         # Backlog incomplete
         incomplete_parser = backlog_subparsers.add_parser('incomplete', help='Find incomplete issues')
         incomplete_parser.add_argument('--export', '-e', help='Export results to file')
+        incomplete_parser.add_argument('--ai-enhanced', action='store_true', help='Include AI suggestions')
+        
+        # Backlog AI insights
+        ai_parser = backlog_subparsers.add_parser('ai-insights', help='Get AI-powered backlog insights')
+        ai_parser.add_argument('--export', '-e', help='Export results to file')
         
         # Publish tool
         publish_parser = subparsers.add_parser('publish', help='Publish analysis results')
@@ -169,9 +176,18 @@ Examples:
         
         # Publish backlog hygiene
         backlog_hygiene_parser = publish_subparsers.add_parser('backlog-hygiene', help='Publish backlog hygiene analysis to Confluence')
-        backlog_hygiene_parser.add_argument('--space', '-s', required=True, help='Confluence space key')
+        backlog_hygiene_parser.add_argument('--space', '-s', help='Confluence space key (uses default from config if not specified)')
         backlog_hygiene_parser.add_argument('--title', '-t', default='Hygiene Analysis', help='Page title (default includes current week)')
         backlog_hygiene_parser.add_argument('--parent', '-p', help='Parent page title')
+        backlog_hygiene_parser.add_argument('--ai-enhanced', action='store_true', help='Include enhanced AI insights and recommendations')
+        
+        # AI Insights command - dedicated AI-powered backlog analysis
+        ai_insights_parser = publish_subparsers.add_parser('ai-insights', help='Publish AI-powered backlog insights to Confluence')
+        ai_insights_parser.add_argument('--space', '-s', help='Confluence space key (uses default from config if not specified)')
+        ai_insights_parser.add_argument('--title', '-t', default='AI Backlog Insights', help='Page title (default includes current week)')
+        ai_insights_parser.add_argument('--parent', '-p', help='Parent page title')
+        ai_insights_parser.add_argument('--focus', choices=['hygiene', 'priorities', 'technical-debt', 'epic-health'], 
+                                      help='Focus area for AI analysis')
         
         # Publish test
         publish_subparsers.add_parser('test', help='Test publishing connections')
@@ -229,6 +245,10 @@ Examples:
             # Add days option for stale command
             if parsed_args.backlog_command == 'stale' and hasattr(parsed_args, 'days'):
                 args.extend(['--days', str(parsed_args.days)])
+            
+            # Add AI enhancement option for incomplete command
+            if parsed_args.backlog_command == 'incomplete' and hasattr(parsed_args, 'ai_enhanced') and parsed_args.ai_enhanced:
+                args.append('--ai-enhanced')
         
         return args
     
@@ -261,6 +281,22 @@ Examples:
                 
                 if hasattr(parsed_args, 'parent') and parsed_args.parent:
                     args.extend(['--parent', parsed_args.parent])
+                
+                if hasattr(parsed_args, 'ai_enhanced') and parsed_args.ai_enhanced:
+                    args.append('--ai-enhanced')
+            
+            elif parsed_args.publish_command == 'ai-insights':
+                if hasattr(parsed_args, 'space') and parsed_args.space:
+                    args.extend(['--space', parsed_args.space])
+                
+                if hasattr(parsed_args, 'title') and parsed_args.title:
+                    args.extend(['--title', parsed_args.title])
+                
+                if hasattr(parsed_args, 'parent') and parsed_args.parent:
+                    args.extend(['--parent', parsed_args.parent])
+                
+                if hasattr(parsed_args, 'focus') and parsed_args.focus:
+                    args.extend(['--focus', parsed_args.focus])
         
         return args
     

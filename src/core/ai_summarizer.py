@@ -104,6 +104,142 @@ class AISummarizer:
             print(f"⚠️  AI summary generation failed: {e}")
             return self._generate_fallback_summary(sprint_data)
     
+    def generate_backlog_hygiene_insights(self, hygiene_data: Dict[str, Any]) -> str:
+        """
+        Generate AI-powered insights and recommendations for backlog hygiene.
+        
+        Args:
+            hygiene_data (dict): Backlog hygiene analysis data
+            
+        Returns:
+            str: AI-generated hygiene insights and recommendations
+        """
+        if not self.api_key:
+            return self._generate_fallback_hygiene_insights(hygiene_data)
+        
+        try:
+            prompt = self._create_hygiene_insights_prompt(hygiene_data)
+            
+            full_prompt = """You are a senior product manager analyzing backlog health. Based on the hygiene metrics provided, write actionable insights and recommendations. Be specific about what needs attention and provide practical next steps. Focus on the most impactful improvements first. Use clear, professional language without jargon.
+
+""" + prompt
+            
+            response_text = self._call_gemini_api(full_prompt)
+            
+            if response_text:
+                return response_text.strip()
+            else:
+                print("⚠️  Empty response from Gemini for hygiene insights")
+                return self._generate_fallback_hygiene_insights(hygiene_data)
+            
+        except Exception as e:
+            print(f"⚠️  AI hygiene insights generation failed: {e}")
+            return self._generate_fallback_hygiene_insights(hygiene_data)
+    
+    def generate_ai_hygiene_recommendations(self, hygiene_data: Dict[str, Any]) -> str:
+        """
+        Generate AI-powered concise and actionable recommendations for backlog hygiene.
+        
+        Args:
+            hygiene_data (dict): Hygiene analysis data
+            
+        Returns:
+            str: AI-generated concise and actionable recommendations
+        """
+        if not self.api_key:
+            return self._generate_fallback_hygiene_recommendations(hygiene_data)
+        
+        try:
+            prompt = self._create_hygiene_recommendations_prompt(hygiene_data)
+            
+            # Add system context to the prompt
+            full_prompt = """You are a technical project manager. Based on the backlog hygiene data, write one summary paragraph about the team's backlog health, then provide exactly 2 short-term action items the team can implement to improve their backlog management. Be concise and actionable.
+
+""" + prompt
+            
+            response_text = self._call_gemini_api(full_prompt)
+            
+            if response_text:
+                return response_text.strip()
+            else:
+                print("⚠️  Empty response from Gemini")
+                return self._generate_fallback_hygiene_recommendations(hygiene_data)
+            
+        except Exception as e:
+            print(f"⚠️  AI hygiene recommendations generation failed: {e}")
+            return self._generate_fallback_hygiene_recommendations(hygiene_data)
+    
+    def generate_issue_description_suggestions(self, issue_title: str, issue_type: str = "Story") -> str:
+        """
+        Generate AI suggestions for improving issue descriptions.
+        
+        Args:
+            issue_title (str): The issue title
+            issue_type (str): Type of issue (Story, Task, Bug, etc.)
+            
+        Returns:
+            str: AI-generated description suggestions
+        """
+        if not self.api_key:
+            return f"Consider adding: user story, acceptance criteria, and technical details for this {issue_type.lower()}."
+        
+        try:
+            prompt = f"""
+Based on this {issue_type} title: "{issue_title}"
+
+Suggest what should be included in the description to make this issue complete and actionable. Provide specific suggestions for:
+1. User story or context
+2. Acceptance criteria
+3. Technical considerations (if applicable)
+
+Keep suggestions concise and practical.
+"""
+            
+            response_text = self._call_gemini_api(prompt)
+            return response_text.strip() if response_text else "Add user story, acceptance criteria, and technical details."
+            
+        except Exception as e:
+            print(f"⚠️  AI description suggestion failed: {e}")
+            return "Add user story, acceptance criteria, and technical details."
+    
+    def analyze_issue_quality(self, issues: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyze the quality of issue descriptions using AI.
+        
+        Args:
+            issues (list): List of issues to analyze
+            
+        Returns:
+            dict: Quality analysis results
+        """
+        if not self.api_key:
+            return self._generate_fallback_quality_analysis(issues)
+        
+        try:
+            # Analyze a sample of issues (max 10 for API efficiency)
+            sample_issues = issues[:10] if len(issues) > 10 else issues
+            
+            prompt = self._create_quality_analysis_prompt(sample_issues)
+            
+            full_prompt = """Analyze these Jira issues for description quality. Rate each on clarity, completeness, and actionability. Identify common patterns of good and poor descriptions. Provide specific improvement suggestions.
+
+""" + prompt
+            
+            response_text = self._call_gemini_api(full_prompt)
+            
+            if response_text:
+                return {
+                    'ai_analysis': response_text.strip(),
+                    'analyzed_count': len(sample_issues),
+                    'total_count': len(issues)
+                }
+            else:
+                return self._generate_fallback_quality_analysis(issues)
+            
+        except Exception as e:
+            print(f"⚠️  AI quality analysis failed: {e}")
+            return self._generate_fallback_quality_analysis(issues)
+    
     def generate_multi_sprint_summary(self, results: Dict[str, Any]) -> str:
         """
         Generate an AI summary for multiple sprints analysis.
@@ -412,4 +548,222 @@ Use the epic context in parentheses to understand which tasks belong together. P
         if len(unique_keywords) <= 2:
             return ' and '.join(unique_keywords)
         else:
-            return ', '.join(unique_keywords[:2]) + ', and other improvements' 
+            return ', '.join(unique_keywords[:2]) + ', and other improvements'
+    
+    def _create_hygiene_insights_prompt(self, hygiene_data: Dict[str, Any]) -> str:
+        """Create a prompt for backlog hygiene insights."""
+        total_issues = hygiene_data.get('total_issues', 0)
+        hygiene_score = hygiene_data.get('hygiene_score', 0)
+        
+        completeness = hygiene_data.get('completeness', {})
+        age = hygiene_data.get('age_distribution', {})
+        priority = hygiene_data.get('priority_distribution', {})
+        epic = hygiene_data.get('epic_assignment', {})
+        
+        prompt = f"""
+BACKLOG HYGIENE ANALYSIS:
+
+Overall Score: {hygiene_score}% ({total_issues} total issues)
+
+COMPLETENESS METRICS:
+- Issues with descriptions: {completeness.get('percentages', {}).get('has_description_percentage', 0):.1f}%
+- Issues with epics: {completeness.get('percentages', {}).get('has_epic_percentage', 0):.1f}%
+- Issues with priorities: {completeness.get('percentages', {}).get('has_priority_percentage', 0):.1f}%
+- Issues with story points: {completeness.get('percentages', {}).get('has_story_points_percentage', 0):.1f}%
+- Fully complete issues: {completeness.get('percentages', {}).get('fully_complete_percentage', 0):.1f}%
+
+AGE DISTRIBUTION:
+- Average age: {age.get('average_age_days', 0)} days
+- 0-7 days: {age.get('distribution', {}).get('0-7_days', 0)} issues
+- 8-30 days: {age.get('distribution', {}).get('8-30_days', 0)} issues  
+- 31-90 days: {age.get('distribution', {}).get('31-90_days', 0)} issues
+- 91-180 days: {age.get('distribution', {}).get('91-180_days', 0)} issues
+- 180+ days: {age.get('distribution', {}).get('180+_days', 0)} issues
+
+EPIC ASSIGNMENT:
+- Issues with epics: {epic.get('issues_with_epics', 0)} ({epic.get('epic_assignment_percentage', 0):.1f}%)
+- Orphaned issues: {epic.get('orphaned_issues', 0)}
+- Unique epics: {epic.get('unique_epics', 0)}
+
+PRIORITY DISTRIBUTION:
+- Issues without priority: {priority.get('issues_without_priority', 0)}
+
+Based on this data, provide:
+1. Key insights about backlog health
+2. Top 3 priority actions to improve hygiene score
+3. Specific recommendations for the most critical issues
+4. Long-term suggestions for maintaining good backlog health
+
+Be specific and actionable in your recommendations.
+"""
+        
+        return prompt
+    
+    def _create_hygiene_recommendations_prompt(self, hygiene_data: Dict[str, Any]) -> str:
+        """Create a prompt for generating hygiene recommendations."""
+        total_issues = hygiene_data.get('total_issues', 0)
+        hygiene_score = hygiene_data.get('hygiene_score', 0)
+        
+        completeness = hygiene_data.get('completeness', {})
+        age = hygiene_data.get('age_distribution', {})
+        priority = hygiene_data.get('priority_distribution', {})
+        epic = hygiene_data.get('epic_assignment', {})
+        
+        # Extract key numbers
+        missing_descriptions = completeness.get('counts', {}).get('missing_description', 0)
+        missing_story_points = completeness.get('counts', {}).get('missing_story_points', 0)
+        avg_age_days = age.get('average_age_days', 0)
+        old_issues_180plus = age.get('distribution', {}).get('180+_days', 0)
+        orphaned_issues = epic.get('orphaned_issues', 0)
+        issues_without_priority = priority.get('issues_without_priority', 0)
+        
+        prompt = f"""
+Analyze this backlog hygiene data and provide specific action items:
+
+Total Issues: {total_issues}
+Hygiene Score: {hygiene_score}%
+
+COMPLETENESS DATA:
+- Issues missing descriptions: {missing_descriptions}
+- Issues missing story points: {missing_story_points}
+- Issues with descriptions: {completeness.get('counts', {}).get('has_description', 0)} ({completeness.get('percentages', {}).get('has_description_percentage', 0):.1f}%)
+- Issues with story points: {completeness.get('counts', {}).get('has_story_points', 0)} ({completeness.get('percentages', {}).get('has_story_points_percentage', 0):.1f}%)
+
+AGE DATA:
+- Average age: {avg_age_days} days
+- Issues 180+ days old: {old_issues_180plus}
+- Issues 91-180 days old: {age.get('distribution', {}).get('91-180_days', 0)}
+
+EPIC DATA:
+- Orphaned issues (no epic): {orphaned_issues}
+- Epic assignment rate: {epic.get('epic_assignment_percentage', 0):.1f}%
+
+PRIORITY DATA:
+- Issues without priority: {issues_without_priority}
+
+Write one paragraph summarizing the backlog health using these specific numbers. Then add "Action items:" followed by exactly 2 short-term improvements the team should implement. Focus on team practices and processes, not individual ticket fixes.
+"""
+        
+        return prompt
+    
+    def _create_quality_analysis_prompt(self, issues: List[Dict[str, Any]]) -> str:
+        """Create a prompt for issue quality analysis."""
+        prompt = "ISSUE QUALITY ANALYSIS:\n\n"
+        
+        for i, issue in enumerate(issues, 1):
+            title = issue.get('summary', 'No title')
+            description = issue.get('description', 'No description')
+            issue_type = issue.get('issue_type', 'Unknown')
+            
+            prompt += f"ISSUE {i} ({issue_type}):\n"
+            prompt += f"Title: {title}\n"
+            prompt += f"Description: {description[:200]}{'...' if len(description) > 200 else ''}\n\n"
+        
+        prompt += """
+Analyze these issues for:
+1. Description quality (clarity, completeness, actionability)
+2. Common patterns in good vs poor descriptions  
+3. Specific suggestions for improvement
+4. Overall assessment of description standards
+
+Provide actionable feedback for improving issue quality.
+"""
+        
+        return prompt
+    
+    def _generate_fallback_hygiene_insights(self, hygiene_data: Dict[str, Any]) -> str:
+        """Generate basic hygiene insights when AI is not available."""
+        hygiene_score = hygiene_data.get('hygiene_score', 0)
+        total_issues = hygiene_data.get('total_issues', 0)
+        
+        completeness = hygiene_data.get('completeness', {}).get('percentages', {})
+        age = hygiene_data.get('age_distribution', {})
+        epic = hygiene_data.get('epic_assignment', {})
+        
+        insights = f"**Backlog Health Summary**\n\n"
+        insights += f"Your backlog hygiene score is {hygiene_score}% across {total_issues} issues. "
+        
+        if hygiene_score >= 80:
+            insights += "This indicates excellent backlog health with good practices in place."
+        elif hygiene_score >= 60:
+            insights += "This indicates decent backlog health with room for improvement."
+        else:
+            insights += "This indicates significant hygiene issues requiring attention."
+        
+        # Key recommendations based on metrics
+        recommendations = []
+        
+        if completeness.get('has_description_percentage', 0) < 80:
+            recommendations.append("Improve issue descriptions for better clarity")
+        
+        if epic.get('epic_assignment_percentage', 0) < 70:
+            recommendations.append(f"Assign {epic.get('orphaned_issues', 0)} orphaned issues to epics")
+        
+        if age.get('average_age_days', 0) > 90:
+            recommendations.append("Review and clean up old issues to reduce backlog staleness")
+        
+        if recommendations:
+            insights += f"\n\n**Priority Actions:**\n"
+            for i, rec in enumerate(recommendations[:3], 1):
+                insights += f"{i}. {rec}\n"
+        
+        return insights
+    
+    def _generate_fallback_quality_analysis(self, issues: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate basic quality analysis when AI is not available."""
+        total_issues = len(issues)
+        issues_with_descriptions = sum(1 for issue in issues if issue.get('description', '').strip())
+        
+        quality_percentage = (issues_with_descriptions / total_issues * 100) if total_issues > 0 else 0
+        
+        analysis = f"**Issue Quality Analysis**\n\n"
+        analysis += f"Analyzed {total_issues} issues: {issues_with_descriptions} ({quality_percentage:.1f}%) have descriptions. "
+        
+        if quality_percentage >= 80:
+            analysis += "Description coverage is good."
+        elif quality_percentage >= 60:
+            analysis += "Description coverage needs improvement."
+        else:
+            analysis += "Description coverage is poor and requires immediate attention."
+        
+        return {
+            'ai_analysis': analysis,
+            'analyzed_count': total_issues,
+            'total_count': total_issues
+        }
+    
+    def _generate_fallback_hygiene_recommendations(self, hygiene_data: Dict[str, Any]) -> str:
+        """Generate simple fallback hygiene recommendations when AI is not available."""
+        total_issues = hygiene_data.get('total_issues', 0)
+        hygiene_score = hygiene_data.get('hygiene_score', 0)
+        
+        completeness = hygiene_data.get('completeness', {})
+        age = hygiene_data.get('age_distribution', {})
+        epic = hygiene_data.get('epic_assignment', {})
+        
+        missing_story_points = completeness.get('counts', {}).get('missing_story_points', 0)
+        avg_age_days = age.get('average_age_days', 0)
+        orphaned_issues = epic.get('orphaned_issues', 0)
+        
+        # Simple summary paragraph
+        summary = f"The backlog contains {total_issues} issues with a {hygiene_score}% hygiene score. "
+        
+        if hygiene_score >= 80:
+            summary += "The backlog is well-maintained with good completeness and organization."
+        elif hygiene_score >= 60:
+            summary += "The backlog shows moderate hygiene with some areas needing attention."
+        else:
+            summary += f"The backlog needs improvement with {missing_story_points} issues missing story points, {orphaned_issues} orphaned issues, and an average age of {avg_age_days} days."
+        
+        # Two action items based on biggest issues
+        action1 = "Schedule weekly 15-minute backlog grooming sessions"
+        action2 = "Create Definition of Ready checklist for new tickets"
+        
+        if missing_story_points > 50:
+            action1 = "Make story point estimation mandatory before sprint planning"
+        if orphaned_issues > 20:
+            action2 = "Assign all new tickets to epics during creation"
+        if avg_age_days > 120:
+            action1 = "Implement monthly backlog cleanup sessions"
+        
+        return f"{summary} Action items: 1) {action1}, 2) {action2}." 

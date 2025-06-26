@@ -9,6 +9,7 @@ from collections import Counter
 from ..core.config import Config
 from ..core.jira_client import JiraClient
 from ..core.utils import parse_jira_datetime
+from ..core.ai_summarizer import AISummarizer
 
 
 class BacklogHygieneAnalyzer:
@@ -26,6 +27,7 @@ class BacklogHygieneAnalyzer:
         """
         self.config = Config(config_path)
         self.jira_client = JiraClient(self.config)
+        self.ai_summarizer = AISummarizer(config_path)
         
     def analyze_full_backlog_hygiene(self) -> Dict[str, Any]:
         """
@@ -56,6 +58,31 @@ class BacklogHygieneAnalyzer:
             completeness_analysis, age_analysis, priority_analysis, epic_analysis
         )
         
+        # Generate recommendations
+        recommendations = self._generate_recommendations(
+            completeness_analysis, age_analysis, priority_analysis, epic_analysis
+        )
+        
+        # Generate AI insights
+        ai_insights = self._generate_ai_insights({
+            'total_issues': len(backlog_issues),
+            'hygiene_score': hygiene_score,
+            'completeness': completeness_analysis,
+            'age_distribution': age_analysis,
+            'priority_distribution': priority_analysis,
+            'epic_assignment': epic_analysis
+        })
+        
+        # Generate AI recommendations for hygiene (concise, actionable)
+        ai_recommendations = self._generate_ai_hygiene_recommendations({
+            'total_issues': len(backlog_issues),
+            'hygiene_score': hygiene_score,
+            'completeness': completeness_analysis,
+            'age_distribution': age_analysis,
+            'priority_distribution': priority_analysis,
+            'epic_assignment': epic_analysis
+        })
+        
         return {
             'total_issues': len(backlog_issues),
             'hygiene_score': hygiene_score,
@@ -64,10 +91,10 @@ class BacklogHygieneAnalyzer:
             'priority_distribution': priority_analysis,
             'epic_assignment': epic_analysis,
             'status_distribution': status_analysis,
-            'analysis_timestamp': datetime.now().isoformat(),
-            'recommendations': self._generate_recommendations(
-                completeness_analysis, age_analysis, priority_analysis, epic_analysis
-            )
+            'recommendations': recommendations,
+            'ai_insights': ai_insights,
+            'ai_recommendations': ai_recommendations,
+            'analysis_timestamp': datetime.now().isoformat()
         }
     
     def get_hygiene_summary(self) -> Dict[str, Any]:
@@ -497,4 +524,200 @@ class BacklogHygieneAnalyzer:
         return [
             {'field': field, 'count': count, 'percentage': round(count / len(incomplete_issues) * 100, 1)}
             for field, count in missing_counts.most_common()
-        ] 
+        ]
+    
+    def get_ai_enhanced_incomplete_analysis(self) -> Dict[str, Any]:
+        """
+        Get AI-enhanced analysis of incomplete issues with improvement suggestions.
+        
+        Returns:
+            dict: AI-enhanced incomplete issues analysis
+        """
+        incomplete_result = self.get_incomplete_issues()
+        incomplete_issues = incomplete_result.get('incomplete_issues', [])
+        
+        if not incomplete_issues:
+            return incomplete_result
+        
+        # Get AI analysis of issue quality
+        issues_for_ai = []
+        for issue_data in incomplete_issues[:10]:  # Limit for API efficiency
+            issues_for_ai.append({
+                'summary': issue_data['summary'],
+                'description': '',  # We know these are incomplete
+                'issue_type': issue_data['issue_type']
+            })
+        
+        ai_quality_analysis = self.ai_summarizer.analyze_issue_quality(issues_for_ai)
+        
+        # Add AI suggestions for top incomplete issues
+        enhanced_issues = []
+        for issue_data in incomplete_issues[:20]:  # Show top 20 with AI suggestions
+            ai_suggestion = self.ai_summarizer.generate_issue_description_suggestions(
+                issue_data['summary'], 
+                issue_data['issue_type']
+            )
+            
+            enhanced_issue = issue_data.copy()
+            enhanced_issue['ai_improvement_suggestion'] = ai_suggestion
+            enhanced_issues.append(enhanced_issue)
+        
+        incomplete_result['enhanced_issues'] = enhanced_issues
+        incomplete_result['ai_quality_analysis'] = ai_quality_analysis
+        
+        return incomplete_result
+    
+    def get_ai_backlog_insights(self) -> Dict[str, Any]:
+        """
+        Get comprehensive AI-powered backlog insights and recommendations.
+        
+        Returns:
+            dict: AI-enhanced backlog analysis
+        """
+        hygiene_analysis = self.analyze_full_backlog_hygiene()
+        
+        # Get additional AI insights
+        ai_insights = self._generate_ai_insights(hygiene_analysis)
+        
+        return {
+            'hygiene_analysis': hygiene_analysis,
+            'ai_insights': ai_insights,
+            'analysis_type': 'ai_enhanced',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def get_ai_insights(self) -> Dict[str, Any]:
+        """
+        Get AI insights in a structured format for publishing.
+        
+        Returns:
+            dict: Structured AI insights data
+        """
+        # Get base hygiene analysis
+        hygiene_analysis = self.analyze_full_backlog_hygiene()
+        
+        # Generate AI insights
+        ai_insights_text = self._generate_ai_insights(hygiene_analysis)
+        
+        # Extract structured data for better presentation
+        key_findings = self._extract_key_findings(hygiene_analysis)
+        recommendations = hygiene_analysis.get('recommendations', [])
+        action_items = self._generate_action_items(hygiene_analysis)
+        
+        return {
+            'total_issues': hygiene_analysis.get('total_issues', 0),
+            'hygiene_score': hygiene_analysis.get('hygiene_score', 0),
+            'ai_insights': ai_insights_text,
+            'key_findings': key_findings,
+            'recommendations': recommendations,
+            'action_items': action_items,
+            'analysis_timestamp': datetime.now().isoformat()
+        }
+    
+    def _extract_key_findings(self, hygiene_analysis: Dict[str, Any]) -> List[str]:
+        """Extract key findings from hygiene analysis."""
+        findings = []
+        
+        # Completeness findings
+        completeness = hygiene_analysis.get('completeness', {})
+        percentages = completeness.get('percentages', {})
+        
+        if percentages.get('has_description_percentage', 0) < 70:
+            findings.append(f"Only {percentages.get('has_description_percentage', 0):.1f}% of issues have meaningful descriptions")
+        
+        if percentages.get('has_story_points_percentage', 0) < 60:
+            findings.append(f"Only {percentages.get('has_story_points_percentage', 0):.1f}% of issues have story points estimated")
+        
+        # Age findings
+        age = hygiene_analysis.get('age_distribution', {})
+        avg_age = age.get('average_age_days', 0)
+        if avg_age > 90:
+            findings.append(f"Average issue age is {avg_age} days - consider reviewing older items")
+        
+        # Epic assignment findings
+        epic = hygiene_analysis.get('epic_assignment', {})
+        epic_percentage = epic.get('epic_assignment_percentage', 0)
+        if epic_percentage < 70:
+            findings.append(f"Only {epic_percentage:.1f}% of issues are assigned to epics")
+        
+        # Priority findings
+        priority = hygiene_analysis.get('priority_distribution', {})
+        if priority.get('issues_without_priority', 0) > 0:
+            findings.append(f"{priority.get('issues_without_priority', 0)} issues are missing priority assignments")
+        
+        return findings
+    
+    def _generate_action_items(self, hygiene_analysis: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Generate structured action items from hygiene analysis."""
+        action_items = []
+        
+        # High priority actions
+        completeness = hygiene_analysis.get('completeness', {})
+        if completeness.get('counts', {}).get('missing_description', 0) > 10:
+            action_items.append({
+                'priority': 'High',
+                'action': f"Add descriptions to {completeness.get('counts', {}).get('missing_description', 0)} issues",
+                'impact': 'Improves team understanding and reduces clarification time'
+            })
+        
+        # Medium priority actions
+        epic = hygiene_analysis.get('epic_assignment', {})
+        if epic.get('orphaned_issues', 0) > 5:
+            action_items.append({
+                'priority': 'Medium',
+                'action': f"Assign {epic.get('orphaned_issues', 0)} orphaned issues to epics",
+                'impact': 'Better organization and sprint planning'
+            })
+        
+        # Age-based actions
+        age = hygiene_analysis.get('age_distribution', {})
+        old_issues = age.get('distribution', {}).get('180+_days', 0)
+        if old_issues > 0:
+            action_items.append({
+                'priority': 'Medium',
+                'action': f"Review and triage {old_issues} issues older than 180 days",
+                'impact': 'Reduces backlog clutter and improves focus'
+            })
+        
+        # Low priority actions
+        completeness = hygiene_analysis.get('completeness', {})
+        if completeness.get('counts', {}).get('missing_story_points', 0) > 0:
+            action_items.append({
+                'priority': 'Low',
+                'action': f"Estimate story points for {completeness.get('counts', {}).get('missing_story_points', 0)} issues",
+                'impact': 'Better sprint planning and velocity tracking'
+            })
+        
+        return action_items
+    
+    def _generate_ai_insights(self, hygiene_data: Dict[str, Any]) -> str:
+        """
+        Generate AI-powered insights for backlog hygiene.
+        
+        Args:
+            hygiene_data (dict): Hygiene analysis data
+            
+        Returns:
+            str: AI-generated insights and recommendations
+        """
+        try:
+            return self.ai_summarizer.generate_backlog_hygiene_insights(hygiene_data)
+        except Exception as e:
+            print(f"⚠️  AI insights generation failed: {e}")
+            return f"AI insights unavailable. Hygiene score: {hygiene_data.get('hygiene_score', 0)}%"
+
+    def _generate_ai_hygiene_recommendations(self, hygiene_data: Dict[str, Any]) -> str:
+        """
+        Generate AI-powered concise and actionable recommendations for backlog hygiene.
+        
+        Args:
+            hygiene_data (dict): Hygiene analysis data
+            
+        Returns:
+            str: AI-generated concise and actionable recommendations
+        """
+        try:
+            return self.ai_summarizer.generate_ai_hygiene_recommendations(hygiene_data)
+        except Exception as e:
+            print(f"⚠️  AI recommendations generation failed: {e}")
+            return "AI recommendations unavailable. Hygiene score: {hygiene_data.get('hygiene_score', 0)}%" 
