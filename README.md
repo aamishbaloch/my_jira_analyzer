@@ -142,10 +142,10 @@ All commands are publishing-focused and generate Confluence reports with rich HT
 ### Sprint Analysis Publishing
 ```bash
 # Publish sprint analysis to Confluence
-python main.py confluence --sprint-name "Sprint 42"
+python main.py publish_sprint_review --sprint-name "Sprint 42"
 
 # Custom configuration
-python main.py confluence --sprint-name "Sprint 42" \
+python main.py publish_sprint_review --sprint-name "Sprint 42" \
   --title "Custom Report Title" \
   --parent "Sprint Reviews"
 ```
@@ -153,45 +153,67 @@ python main.py confluence --sprint-name "Sprint 42" \
 ### Backlog Hygiene Publishing
 ```bash
 # Publish backlog hygiene analysis (automatically includes current week)
-python main.py backlog-hygiene
+python main.py publish_backlog_hygiene
 # Creates: "Analysis - W26 2024" (under default parent page)
 
-# With AI-enhanced insights
-python main.py backlog-hygiene --ai-enhanced
-
-# With custom parent and title
-python main.py backlog-hygiene \
-  --parent "Backlog Reports" \
-  --title "Weekly Backlog Health Check"
-```
-
-### AI Insights Publishing
-```bash
-# Publish dedicated AI insights report
-python main.py ai-insights
-
-# With custom configuration
-python main.py ai-insights \
-  --title "AI Backlog Insights" \
-  --parent "AI Reports"
+# With custom title
+python main.py publish_backlog_hygiene --title "Weekly Backlog Health Check"
 ```
 
 ### Utility Commands
 ```bash
 # Test Confluence connection
 python main.py test
-
-# List available Confluence spaces (for reference)
-python main.py spaces
 ```
 
 ### Command Options
-- `--title, -t`: Custom page title (auto-generated if not provided)  
-- `--parent, -p`: Parent page title for organizing reports
-- `--ai-enhanced`: Include enhanced AI insights in backlog hygiene reports
-- `--config, -c`: Path to configuration file (default: config.json)
+
+**Global Options:**
+- `--config, -c`: Path to configuration file (default: `src/configs/config.json`)
+
+**For `publish_sprint_review`:**
+- `--sprint-name, -n`: Sprint name to analyze and publish (required)
+- `--title, -t`: Page title (auto-generated if not provided)
+- `--parent, -p`: Parent page title
+- `--update`: Update existing page if found
+
+**For `publish_backlog_hygiene`:**
+- `--title, -t`: Page title (default: "Analysis - W{week} {year}")
 
 **Note**: The Confluence space is automatically read from `space` in your config.json file.
+
+### Example Usage
+
+```bash
+# Publish sprint review by name
+python main.py publish_sprint_review --sprint-name "Sprint 42"
+
+# Publish with custom title and parent page
+python main.py publish_sprint_review --sprint-name "Slow Sloths (W25-W26)" --title "Custom Report Title" --parent "Sprint Reports"
+
+# Publish backlog hygiene analysis
+python main.py publish_backlog_hygiene
+
+# Publish backlog hygiene with custom title
+python main.py publish_backlog_hygiene --title "Weekly Backlog Health Check"
+
+# Test Confluence connection
+python main.py test
+```
+
+### Help
+
+To see all available commands and options:
+```bash
+python main.py --help
+```
+
+To see help for a specific command:
+```bash
+python main.py publish_sprint_review --help
+python main.py publish_backlog_hygiene --help
+python main.py test --help
+```
 
 ## Features in Detail
 
