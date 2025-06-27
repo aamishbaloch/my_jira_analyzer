@@ -44,22 +44,13 @@ python cli.py config --create-sample
 
 ```bash
 # Publish sprint analysis to Confluence
-python main.py confluence --sprint-name "Sprint 42"
+python main.py publish_sprint_review --sprint-name "Sprint 42"
 
 # Publish backlog hygiene analysis
-python main.py backlog-hygiene
-
-# Publish backlog hygiene with AI insights
-python main.py backlog-hygiene --ai-enhanced
-
-# Publish dedicated AI insights report  
-python main.py ai-insights
+python main.py publish_backlog_hygiene
 
 # Test Confluence connection
 python main.py test
-
-# List available Confluence spaces (for reference)
-python main.py spaces
 ```
 
 ## Package Structure
